@@ -1,0 +1,15 @@
+{
+  "name": "waonder-plugins",
+  "owner": {
+    "name": "Waonder Team",
+    "email": "puzzle9900@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "waonder-cloud",
+      "source": "./",
+      "description": "Claude Code plugin for Waonder - AI-powered travel companion with location-aware RAG capabilities",
+      "version": "1.0.0"
+    }
+  ]
+}
