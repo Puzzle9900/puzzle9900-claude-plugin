@@ -12,6 +12,7 @@ Welcome to the Waonder Cloud Plugin for Claude Code. This plugin extends your de
 | Skill | Description |
 |-------|-------------|
 | `/waonder-cloud:help` | Show this help message |
+| `/waonder-cloud:spec` | Create project specifications and milestone documentation |
 
 ## Plugin Components
 
