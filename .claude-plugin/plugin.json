@@ -1,0 +1,22 @@
+{
+  "name": "waonder-cloud",
+  "description": "Claude Code plugin for Waonder - AI-powered travel companion with location-aware RAG capabilities",
+  "version": "1.0.0",
+  "author": {
+    "name": "Waonder Team",
+    "email": "hello@waonder.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/waonder/waonder-claude-plugin"
+  },
+  "keywords": [
+    "waonder",
+    "travel",
+    "location",
+    "rag",
+    "ai",
+    "claude-code"
+  ],
+  "license": "MIT"
+}
