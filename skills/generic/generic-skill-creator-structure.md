@@ -1,10 +1,10 @@
 ---
-name: generic-skill-structure
+name: generic-skill-creator-structure
 description: Reference for skill file structure, naming conventions, and folder placement. Use this whenever creating or validating a skill file.
 type: generic
 ---
 
-# generic-skill-structure
+# generic-skill-creator-structure
 
 ## Context
 This skill defines the canonical structure all skill files must follow. Use it as the authoritative reference when creating, reviewing, or updating any skill in this project.
