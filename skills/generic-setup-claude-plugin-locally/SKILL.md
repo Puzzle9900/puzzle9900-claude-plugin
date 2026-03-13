@@ -91,7 +91,28 @@ Read `~/.claude/settings.json`. Add the marketplace to `extraKnownMarketplaces` 
 
 Preserve all existing keys — only add the new entries.
 
-### 5. Register in `~/.claude/plugins/installed_plugins.json`
+### 5. Register the marketplace in `~/.claude/plugins/known_marketplaces.json`
+
+**This is the critical step most setups miss.** `known_marketplaces.json` is Claude Code's authoritative marketplace registry. Even with correct `settings.json` and `installed_plugins.json`, the plugin will **silently fail to load** in new sessions if the marketplace is absent from this file.
+
+Read `~/.claude/plugins/known_marketplaces.json`. Add an entry for the marketplace:
+
+```json
+"my-plugins": {
+  "source": {
+    "source": "directory",
+    "path": "/Users/you/projects/my-claude-plugin"
+  },
+  "installLocation": "/Users/you/projects/my-claude-plugin",
+  "lastUpdated": "<current ISO timestamp>"
+}
+```
+
+Both `source.path` and `installLocation` must point to the **same source directory**.
+
+Preserve all existing entries. Do not overwrite or remove any existing marketplace entries.
+
+### 6. Register in `~/.claude/plugins/installed_plugins.json`
 Read `~/.claude/plugins/installed_plugins.json`. Add an entry under the key `<plugin-name>@<marketplace-name>`:
 
 ```json
@@ -106,21 +127,23 @@ Read `~/.claude/plugins/installed_plugins.json`. Add an entry under the key `<pl
 ]
 ```
 
-**Critical**: Set `installPath` to the **source directory** — not a cache path. This ensures skill changes are live without running `/plugin update`.
+Set `installPath` to the **source directory** — not a cache path. This ensures skill changes are picked up on the next session start with no reinstall.
 
 Preserve all existing entries. Do not add duplicate keys.
 
-### 6. Confirm and instruct the user
+### 7. Confirm and instruct the user
 After all files are updated, tell the user:
-- Which files were changed
-- The skill prefix to use (e.g. `/my-claude-plugin:my-skill`)
-- To **restart Claude Code** in any session where they want the skills available
+- Which files were changed (settings.json, known_marketplaces.json, installed_plugins.json)
+- The skill prefix to use (e.g. `puzzle9900-claude-plugin:my-skill`)
+- To **open a new Claude Code session** — skills are available immediately with no reinstall needed
+- Any new skill added to the plugin's `skills/` folder will appear automatically in the next new session
 
 ---
 
 ## Constraints
 - Never use a cache path for `installPath` — always point to the source directory
-- Never overwrite existing plugin entries in `installed_plugins.json`
-- The key format in `enabledPlugins` and `installed_plugins.json` must be `<plugin-name>@<marketplace-name>` — both must match exactly what is in `marketplace.json`
+- **Always update `known_marketplaces.json`** — omitting this step will cause the plugin to load only when Claude is started from the plugin's own directory, not globally
+- Never overwrite existing entries in `installed_plugins.json` or `known_marketplaces.json`
+- The key format in `enabledPlugins`, `installed_plugins.json`, and `known_marketplaces.json` must all use the same `<marketplace-name>` — it must match the `name` field in `.claude-plugin/marketplace.json`
 - The `repository` field in `plugin.json` must be a string if present — remove it if unsure
 - Do not modify any `env` fields in `settings.json`

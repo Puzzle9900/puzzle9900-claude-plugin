@@ -1,6 +1,6 @@
 # Skills Guide
 
-How skills work in the Waonder Claude Plugin, how they're organized, and how to reuse them across projects.
+How skills work in the puzzle9900 Claude Plugin, how they're organized, and how to reuse them across projects.
 
 ---
 
@@ -133,9 +133,9 @@ The plugin's `skills/` folder can be shared across multiple projects using symbo
 
 ```bash
 # In any project, link to the plugin's skills
-cd ~/Documents/WaonderApps/my-project
+cd ~/Documents/my-project
 mkdir -p .claude
-ln -s ~/Documents/WaonderApps/waonder-claude-pluggin/skills .claude/skills
+ln -s ~/Documents/TestProjects/puzzle9900-claude-plugin/skills .claude/skills
 ```
 
 Now `my-project/.claude/skills/` points to the plugin. All skills are available.
@@ -145,27 +145,27 @@ Now `my-project/.claude/skills/` points to the plugin. All skills are available.
 If a project only needs certain domains:
 
 ```bash
-cd ~/Documents/WaonderApps/my-project
+cd ~/Documents/my-project
 mkdir -p .claude/skills
 
 # Only link what this project needs
-ln -s ~/Documents/WaonderApps/waonder-claude-pluggin/skills/generic .claude/skills/generic
-ln -s ~/Documents/WaonderApps/waonder-claude-pluggin/skills/backend .claude/skills/backend
+ln -s ~/Documents/TestProjects/puzzle9900-claude-plugin/skills/generic .claude/skills/generic
+ln -s ~/Documents/TestProjects/puzzle9900-claude-plugin/skills/backend .claude/skills/backend
 ```
 
 ### Strategy 3: Link Specific Skills + Project-Specific Ones
 
 ```bash
-cd ~/Documents/WaonderApps/my-project
+cd ~/Documents/my-project
 mkdir -p .claude/skills/generic
 mkdir -p .claude/skills/backend/services
 
 # Shared from plugin
-ln -s ~/Documents/WaonderApps/waonder-claude-pluggin/skills/generic/generic-skill-creator.md \
-      .claude/skills/generic/generic-skill-creator.md
+ln -s ~/Documents/TestProjects/puzzle9900-claude-plugin/skills/generic-skill-creator-structure \
+      .claude/skills/generic-skill-creator-structure
 
 # Project-specific (not linked)
-# Create directly in .claude/skills/backend/services/backend-services-my-api.md
+# Create directly in .claude/skills/backend-services-my-api/SKILL.md
 ```
 
 ### Strategy 4: User-Level Skills (All Projects, No Links)
@@ -175,12 +175,12 @@ For skills that should be available in EVERY project on your machine:
 ```bash
 # Copy or link to user-level directory
 mkdir -p ~/.claude/skills/generic
-cp ~/Documents/WaonderApps/waonder-claude-pluggin/skills/generic/generic-skill-creator.md \
+cp ~/Documents/TestProjects/puzzle9900-claude-plugin/skills/generic-skill-creator-structure/SKILL.md \
    ~/.claude/skills/generic/
 
-# Or symlink
-ln -s ~/Documents/WaonderApps/waonder-claude-pluggin/skills/generic \
-      ~/.claude/skills/generic
+# Or symlink the entire skills folder
+ln -s ~/Documents/TestProjects/puzzle9900-claude-plugin/skills \
+      ~/.claude/skills
 ```
 
 User-level skills (`~/.claude/skills/`) are automatically available in every project without any per-project configuration.
@@ -189,7 +189,7 @@ User-level skills (`~/.claude/skills/`) are automatically available in every pro
 
 | Scenario | Strategy |
 |----------|----------|
-| All Waonder projects share all skills | Strategy 1: Link entire folder |
+| All projects share all skills | Strategy 1: Link entire folder |
 | Project only needs some domains | Strategy 2: Link by domain |
 | Mix of shared + project-specific | Strategy 3: Link individual files |
 | Skills needed everywhere on machine | Strategy 4: User-level |
@@ -202,8 +202,8 @@ User-level skills (`~/.claude/skills/`) are automatically available in every pro
 - If you need git-tracked shared skills, use git submodules instead:
 
 ```bash
-cd ~/Documents/WaonderApps/my-project
-git submodule add ../waonder-claude-pluggin .claude/plugins/waonder
+cd ~/Documents/my-project
+git submodule add ../puzzle9900-claude-plugin .claude/plugins/puzzle9900
 ```
 
 ---
@@ -245,4 +245,4 @@ Use **Skills** for specific workflows Claude should execute on demand.
 | `generic-skill-creator` | generic | — | Creates new skills following naming conventions |
 | `generic-spec` | generic | — | Creates project specifications and milestones |
 | `generic-help` | generic | — | Lists all available skills |
-| `backend-services-waonder-reviewer` | backend | services | Reviews code for Waonder best practices |
+| `backend-services-reviewer` | backend | services | Reviews backend service code for best practices |

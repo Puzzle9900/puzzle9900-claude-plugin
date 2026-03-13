@@ -61,7 +61,7 @@ The full skill name is a composite of domain, platform (if applicable), and name
 |--------|----------|-------------------|---------|
 | `generic` | — | `generic-<name>` | `generic-spec` |
 | `mobile` | `ios` / `android` / `web` | `mobile-<platform>-<name>` | `mobile-android-auth-flow` |
-| `backend` | `services` / `infrastructure` / `database` | `backend-<platform>-<name>` | `backend-services-waonder-reviewer` |
+| `backend` | `services` / `infrastructure` / `database` | `backend-<platform>-<name>` | `backend-services-auth-reviewer` |
 
 - Always **kebab-case** for the name portion
 - The folder name and the `name` field in frontmatter must always match exactly
