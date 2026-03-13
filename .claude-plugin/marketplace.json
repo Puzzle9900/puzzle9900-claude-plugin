@@ -1,14 +1,14 @@
 {
-  "name": "waonder-plugins",
+  "name": "puzzle9900-plugins",
   "owner": {
-    "name": "Waonder Team",
+    "name": "Puzzle9900",
     "email": "puzzle9900@gmail.com"
   },
   "plugins": [
     {
-      "name": "waonder-cloud",
+      "name": "puzzle9900-claude-plugin",
       "source": "./",
-      "description": "Claude Code plugin for Waonder - AI-powered travel companion with location-aware RAG capabilities",
+      "description": "Claude Code plugin with generic skills, agents, and hooks for AI-assisted development",
       "version": "1.1.0"
     }
   ]
