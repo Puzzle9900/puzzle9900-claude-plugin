@@ -3,8 +3,8 @@
   "description": "Claude Code plugin with generic skills, agents, and hooks for AI-assisted development",
   "version": "1.1.0",
   "author": {
-    "name": "Puzzle9900 Team",
-    "email": "hello@puzzle9900.com"
+    "name": "Puzzle9900",
+    "email": "puzzle9900@gmail.com"
   },
   "repository": {
     "type": "git",
