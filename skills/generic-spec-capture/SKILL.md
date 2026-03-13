@@ -36,8 +36,10 @@ You are a specification synthesizer. Your job is to read and understand existing
 4. **Derive the milestone name** — Use a short kebab-case name that reflects the feature or system being captured (e.g., `location-cache`, `auth-refresh-flow`, `trip-summary-widget`)
 
 5. **Create the folder and spec file**:
+   - If `projectspecs/` does not exist at the project root, create it first
    - Folder: `projectspecs/{number}_{kebab-case-name}/`
    - File: `projectspecs/{number}_{kebab-case-name}/spec.md`
+   - Never use any other folder (e.g. `docs/`, `documents/`) — always `projectspecs/`
 
 6. **Write the spec** using this template, populated entirely from the source material:
 

@@ -11,7 +11,15 @@ This skill defines the canonical structure all skill files must follow. Use it a
 
 ## Skill File Structure
 
-Every skill file is a Markdown file with a YAML frontmatter block followed by content sections.
+Every skill is a **folder** named after the skill, containing a single `SKILL.md` file:
+
+```
+skills/
+  <full-composite-name>/
+    SKILL.md
+```
+
+The `SKILL.md` file has a YAML frontmatter block followed by content sections:
 
 ### Frontmatter
 
@@ -21,6 +29,7 @@ name: <full-composite-name>
 description: <one-line description — Claude uses this to decide when to auto-invoke>
 type: <domain>
 platform: <platform>          # omit this line entirely for generic domain
+disable-model-invocation: true  # omit unless skill must only be user-invoked
 ---
 ```
 
@@ -55,7 +64,7 @@ The full skill name is a composite of domain, platform (if applicable), and name
 | `backend` | `services` / `infrastructure` / `database` | `backend-<platform>-<name>` | `backend-services-waonder-reviewer` |
 
 - Always **kebab-case** for the name portion
-- The filename must match the `name` field in frontmatter exactly (plus `.md`)
+- The folder name and the `name` field in frontmatter must always match exactly
 
 ---
 
@@ -63,28 +72,31 @@ The full skill name is a composite of domain, platform (if applicable), and name
 
 ```
 skills/
-├── generic/
-│   └── generic-<name>.md
-├── mobile/
-│   ├── ios/
-│   │   └── mobile-ios-<name>.md
-│   ├── android/
-│   │   └── mobile-android-<name>.md
-│   └── web/
-│       └── mobile-web-<name>.md
-└── backend/
-    ├── services/
-    │   └── backend-services-<name>.md
-    ├── infrastructure/
-    │   └── backend-infrastructure-<name>.md
-    └── database/
-        └── backend-database-<name>.md
+  generic-<name>/
+    SKILL.md
+  mobile-ios-<name>/
+    SKILL.md
+  mobile-android-<name>/
+    SKILL.md
+  mobile-web-<name>/
+    SKILL.md
+  backend-services-<name>/
+    SKILL.md
+  backend-infrastructure-<name>/
+    SKILL.md
+  backend-database-<name>/
+    SKILL.md
 ```
+
+Each skill is a flat folder at the root of `skills/` — no domain or platform subfolders.
 
 ---
 
 ## Constraints
-- The `name` in frontmatter and the filename (without `.md`) must always match
-- The `description` must be specific enough for Claude to decide auto-invocation — avoid vague descriptions like "helps with tasks"
-- All four content sections (Context, Instructions, Steps, Constraints) must be present and populated — never leave placeholders
+- Each skill lives in its own folder: `skills/<name>/SKILL.md`
+- The folder name and the `name` frontmatter field must match exactly
+- Never nest skill folders inside domain or platform subfolders
+- The `description` must be specific enough for Claude to decide auto-invocation — avoid vague descriptions
+- All four content sections (Context, Instructions, Steps, Constraints) must be present and populated
 - `platform` must be omitted entirely (not left blank) for `generic` domain skills
+- Add `disable-model-invocation: true` only when the skill must be explicitly user-invoked
