@@ -1,10 +1,10 @@
-# Waonder Cloud Plugin for Claude Code
+# puzzle9900-claude-plugin for Claude Code
 
-A Claude Code plugin that extends your development workflow with Waonder-specific capabilities—an AI-powered travel companion platform with location-aware RAG (Retrieval-Augmented Generation).
+A Claude Code plugin that provides custom skills, agents, and hooks to extend your development workflow.
 
 ## What is This?
 
-This is a **Claude Code plugin** that provides custom skills, agents, and hooks for developing and maintaining the Waonder ecosystem. It integrates directly into Claude Code to enhance your AI-assisted development experience.
+This is a **Claude Code plugin** that provides custom skills, agents, and hooks. It integrates directly into Claude Code to enhance your AI-assisted development experience.
 
 ### Plugin vs Marketplace Plugin
 
@@ -23,10 +23,10 @@ This repository serves as both:
 
 ```bash
 # Add the marketplace
-/plugin marketplace add waonder/waonder-claude-plugin
+/plugin marketplace add puzzle9900/puzzle9900-claude-plugin
 
 # Install the plugin
-/plugin install waonder-cloud@waonder-claude-plugin
+/plugin install puzzle9900-claude-plugin
 ```
 
 ### Option 2: Local Development
@@ -34,37 +34,43 @@ This repository serves as both:
 Clone and use directly:
 
 ```bash
-git clone https://github.com/waonder/waonder-claude-plugin.git
+git clone https://github.com/Puzzle9900/puzzle9900-claude-plugin.git
 cd your-project
-claude --plugin-dir ../waonder-claude-plugin
+claude --plugin-dir ../puzzle9900-claude-plugin
 ```
 
-### Option 3: Add to Project
+### Option 3: Global Install
 
-Copy the plugin to your project's `.claude/plugins/` directory:
+Copy the plugin to your global Claude plugins directory:
 
 ```bash
-cp -r waonder-claude-plugin ~/.claude/plugins/
+cp -r puzzle9900-claude-plugin ~/.claude/plugins/
+```
+
+Or use a symlink for development (picks up changes automatically):
+
+```bash
+ln -s /path/to/puzzle9900-claude-plugin ~/.claude/plugins/puzzle9900-claude-plugin
 ```
 
 ## Usage
 
-Once installed, access Waonder skills with the `/waonder-cloud:` prefix:
+Once installed, access skills with the `/puzzle9900-claude-plugin:` prefix:
 
 ```bash
 # List available skills
-/waonder-cloud:help
+/puzzle9900-claude-plugin:generic-help
 
 # Example skills (add your own!)
-/waonder-cloud:setup-dev      # Set up development environment
-/waonder-cloud:run-etl        # Execute ETL pipelines
-/waonder-cloud:test-contexts  # Test location context retrieval
+/puzzle9900-claude-plugin:generic-spec
+/puzzle9900-claude-plugin:generic-spec-capture
+/puzzle9900-claude-plugin:generic-contributor-jira-context
 ```
 
 ## Plugin Structure
 
 ```
-waonder-claude-plugin/
+puzzle9900-claude-plugin/
 ├── .claude-plugin/
 │   └── plugin.json          # Plugin manifest (metadata)
 ├── skills/                   # Custom slash commands
@@ -107,16 +113,12 @@ Add agents in the `agents/` directory:
 ```markdown
 <!-- agents/code-reviewer.md -->
 ---
-name: waonder-code-reviewer
-description: Reviews code for Waonder best practices
+name: my-code-reviewer
+description: Reviews code for best practices
 ---
 
-You are a code review specialist for the Waonder platform.
-Review code for:
-- NestJS module patterns
-- TypeORM entity design
-- PostGIS spatial queries
-- RAG pipeline implementation
+You are a code review specialist.
+Review code for best practices, patterns, and potential issues.
 ```
 
 ## Creating Hooks
@@ -169,16 +171,16 @@ To distribute multiple plugins, create a `marketplace.json`:
 
 ```json
 {
-  "name": "waonder-plugins",
+  "name": "puzzle9900-plugins",
   "owner": {
-    "name": "Waonder Team",
-    "email": "hello@waonder.com"
+    "name": "Puzzle9900 Team",
+    "email": "hello@puzzle9900.com"
   },
   "plugins": [
     {
-      "name": "waonder-cloud",
+      "name": "puzzle9900-claude-plugin",
       "source": "./",
-      "description": "Waonder development plugin",
+      "description": "puzzle9900-claude-plugin",
       "version": "1.0.0"
     }
   ]
@@ -191,15 +193,6 @@ Submit your plugin to Anthropic's official marketplace:
 - **Claude.ai**: https://claude.ai/settings/plugins/submit
 - **Console**: https://platform.claude.com/plugins/submit
 
-## Waonder Ecosystem
-
-This plugin is designed for the Waonder platform:
-
-- **waonder-backend**: NestJS API with PostGIS, vector search, and RAG
-- **waonder-web-page**: Next.js landing page
-- **waonder-react-native**: Mobile application
-- **waonder-android**: Native Android app
-
 ## Contributing
 
 1. Fork the repository
@@ -211,7 +204,3 @@ This plugin is designed for the Waonder platform:
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-Built with Claude Code for the Waonder team.

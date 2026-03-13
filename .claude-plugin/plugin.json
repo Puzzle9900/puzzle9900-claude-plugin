@@ -1,22 +1,21 @@
 {
   "name": "puzzle9900-claude-plugin",
-  "description": "Claude Code plugin for Waonder - AI-powered travel companion with location-aware RAG capabilities",
+  "description": "Claude Code plugin with generic skills, agents, and hooks for AI-assisted development",
   "version": "1.1.0",
   "author": {
-    "name": "Waonder Team",
-    "email": "hello@waonder.com"
+    "name": "Puzzle9900 Team",
+    "email": "hello@puzzle9900.com"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Puzzle9900/waonder-claude-plugin"
+    "url": "https://github.com/Puzzle9900/puzzle9900-claude-plugin"
   },
   "keywords": [
-    "waonder",
-    "travel",
-    "location",
-    "rag",
-    "ai",
-    "claude-code"
+    "claude-code",
+    "skills",
+    "agents",
+    "hooks",
+    "ai"
   ],
   "license": "MIT"
 }
