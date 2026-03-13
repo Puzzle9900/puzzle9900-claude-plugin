@@ -2,6 +2,7 @@
 name: generic-spec-capture
 description: Synthesize a project spec from existing information (code, docs, conversations, PRDs) and save it into projectspecs using the standard numbering convention
 type: generic
+disable-model-invocation: true
 ---
 
 # generic-spec-capture
