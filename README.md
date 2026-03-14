@@ -41,7 +41,7 @@ claude --plugin-dir ../puzzle9900-claude-plugin
 
 ### Option 3: Global Install for Local Development
 
-Register the plugin globally so its skills are available in every Claude Code session, with changes picked up automatically on each restart — no reinstall needed.
+Register the plugin globally so its skills are available in every Claude Code session. Uses a **cache symlink** so that `git pull`, new skills, and edited skills are picked up on the next session restart — no version bump or reinstall needed.
 
 #### Automated setup
 
@@ -51,7 +51,7 @@ Use the built-in skill to configure everything:
 /puzzle9900-claude-plugin:generic-setup-claude-plugin-locally
 ```
 
-It will ask for your plugin directory path and handle all the registration steps below.
+It will ask for your plugin directory path and handle all the registration and symlink steps below.
 
 #### Manual setup
 
@@ -110,7 +110,7 @@ This is the step most setups miss — without it the plugin silently fails to lo
       {
         "scope": "user",
         "installPath": "/absolute/path/to/puzzle9900-claude-plugin",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "installedAt": "2026-01-15T10:30:00.000Z",
         "lastUpdated": "2026-01-15T10:30:00.000Z"
       }
@@ -119,9 +119,24 @@ This is the step most setups miss — without it the plugin silently fails to lo
 }
 ```
 
-> **Important:** Set `installPath` to the cloned repo path (not a cache path) so changes are picked up automatically.
+**5. Create the cache symlink (critical step):**
 
-**5. Restart Claude Code** — skills are available immediately with no reinstall needed. Any new skill added to `skills/` will appear in the next session.
+Claude Code always reads plugins from its cache directory, not from `installPath`. Without this symlink, new or changed skills won't appear even after restarting. Replace the cache copy with a symlink to your source repo:
+
+```bash
+mkdir -p ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin
+rm -rf ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/1.2.0
+ln -s /absolute/path/to/puzzle9900-claude-plugin ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/1.2.0
+```
+
+Verify the symlink works:
+
+```bash
+ls -la ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/
+# Should show: 1.2.0 -> /absolute/path/to/puzzle9900-claude-plugin
+```
+
+**6. Restart Claude Code** — skills are available immediately. Any change to the plugin repo (new skills, edits, `git pull`) will be picked up on the next session restart with no further action needed.
 
 ## Usage
 

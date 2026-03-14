@@ -9,7 +9,7 @@
       "name": "puzzle9900-claude-plugin",
       "source": "./",
       "description": "Claude Code plugin with generic skills, agents, and hooks for AI-assisted development",
-      "version": "1.1.0"
+      "version": "1.2.0"
     }
   ]
 }
