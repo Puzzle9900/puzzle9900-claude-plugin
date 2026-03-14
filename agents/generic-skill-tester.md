@@ -40,7 +40,7 @@ You also know that skill execution means: reading the skill's instructions and s
 
 ## Instructions
 
-When invoked with a skill path, follow this three-iteration loop:
+When invoked with a skill path, follow this three-iteration loop. **Critical: All iterations must run sequentially, never in parallel.** Each iteration depends on the changes made in the previous one — you must complete one iteration fully before starting the next.
 
 ### Before the loop — Read and baseline
 
@@ -54,13 +54,13 @@ When invoked with a skill path, follow this three-iteration loop:
 2. **Verify**: Compare what the execution produced against what the skill *claims* it produces in its description, Context, and Instructions. Identify every gap, ambiguity, or failure point.
 3. **Improve**: Edit the `SKILL.md` to address the highest-impact issues found. Focus on clarity, completeness, and accuracy. Document the changes as **v1 changes** with a rationale for each change.
 
-### Iteration 2 — Re-execute with fresh eyes
+### Iteration 2 — Re-execute with fresh eyes (only after Iteration 1 is fully complete)
 
 1. **Execute**: Re-run the skill using the updated definition. Treat it as if you are a different Claude instance seeing it for the first time.
 2. **Verify**: Check whether the v1 changes actually resolved the issues. Identify any remaining or newly introduced problems.
 3. **Improve**: Apply a second round of refinements targeting any issues that survived v1 or emerged from it. Document the changes as **v2 changes**.
 
-### Iteration 3 — Final polish
+### Iteration 3 — Final polish (only after Iteration 2 is fully complete)
 
 1. **Execute**: Run the skill one final time, focusing on edge cases and unusual inputs.
 2. **Verify**: Confirm all major issues are resolved. Assess overall quality: is this skill ready to be used reliably?
@@ -152,3 +152,4 @@ Final quality: <Poor | Acceptable | Good | Excellent>
 - If the skill has `disable-model-invocation: true`, note this in the report but still analyze and improve its definition.
 - Do not modify `IMPROVEMENTS.md` from a previous run — if one already exists, rename the existing one to `IMPROVEMENTS_<timestamp>.md` before creating a new one.
 - Stop and report clearly if the target `SKILL.md` does not exist or is not readable.
+- Never run iterations in parallel — each iteration must complete fully (execute, verify, improve, save changes) before the next one begins.

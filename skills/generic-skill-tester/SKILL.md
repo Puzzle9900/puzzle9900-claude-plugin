@@ -18,7 +18,7 @@ If the user invokes this skill as `/generic-skill-tester <skill-name>`, resolve 
 
 1. **Resolve skill path** — Determine the full path to the target `SKILL.md`. Accept either a full path or a short name (e.g., `generic-spec` → `skills/generic-spec/SKILL.md`). If not provided, ask the user.
 
-2. **Delegate to agent** — Invoke the `generic-skill-tester` agent with the resolved skill path. The agent owns all subsequent execution.
+2. **Delegate to agent** — Invoke the `generic-skill-tester` agent with the resolved skill path. The agent owns all subsequent execution. **Important:** The agent must run its 3 iterations sequentially (one after the other), never in parallel. Each iteration depends on the output and improvements from the previous one.
 
 3. **Report outcome** — Once the agent completes, summarize:
    - The 3 iterations and what changed in each

@@ -39,19 +39,89 @@ cd your-project
 claude --plugin-dir ../puzzle9900-claude-plugin
 ```
 
-### Option 3: Global Install
+### Option 3: Global Install for Local Development
 
-Copy the plugin to your global Claude plugins directory:
+Register the plugin globally so its skills are available in every Claude Code session, with changes picked up automatically on each restart — no reinstall needed.
 
-```bash
-cp -r puzzle9900-claude-plugin ~/.claude/plugins/
-```
+#### Automated setup
 
-Or use a symlink for development (picks up changes automatically):
+Use the built-in skill to configure everything:
 
 ```bash
-ln -s /path/to/puzzle9900-claude-plugin ~/.claude/plugins/puzzle9900-claude-plugin
+/puzzle9900-claude-plugin:generic-setup-claude-plugin-locally
 ```
+
+It will ask for your plugin directory path and handle all the registration steps below.
+
+#### Manual setup
+
+If you prefer to set things up manually, follow these steps:
+
+**1. Create the plugins directory** (if it doesn't exist):
+
+```bash
+mkdir -p ~/.claude/plugins
+```
+
+**2. Register the marketplace in `~/.claude/settings.json`:**
+
+Add these entries (merge into your existing file — don't overwrite other keys):
+
+```json
+{
+  "enabledPlugins": {
+    "puzzle9900-claude-plugin@puzzle9900-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "puzzle9900-plugins": {
+      "source": {
+        "source": "directory",
+        "path": "/absolute/path/to/puzzle9900-claude-plugin"
+      }
+    }
+  }
+}
+```
+
+**3. Register in `~/.claude/plugins/known_marketplaces.json`:**
+
+This is the step most setups miss — without it the plugin silently fails to load outside the plugin directory.
+
+```json
+{
+  "puzzle9900-plugins": {
+    "source": {
+      "source": "directory",
+      "path": "/absolute/path/to/puzzle9900-claude-plugin"
+    },
+    "installLocation": "/absolute/path/to/puzzle9900-claude-plugin",
+    "lastUpdated": "2026-01-15T10:30:00.000Z"
+  }
+}
+```
+
+**4. Register in `~/.claude/plugins/installed_plugins.json`:**
+
+```json
+{
+  "version": 2,
+  "plugins": {
+    "puzzle9900-claude-plugin@puzzle9900-plugins": [
+      {
+        "scope": "user",
+        "installPath": "/absolute/path/to/puzzle9900-claude-plugin",
+        "version": "1.1.0",
+        "installedAt": "2026-01-15T10:30:00.000Z",
+        "lastUpdated": "2026-01-15T10:30:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+> **Important:** Set `installPath` to the cloned repo path (not a cache path) so changes are picked up automatically.
+
+**5. Restart Claude Code** — skills are available immediately with no reinstall needed. Any new skill added to `skills/` will appear in the next session.
 
 ## Usage
 
@@ -195,11 +265,12 @@ Submit your plugin to Anthropic's official marketplace:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Add your skills/agents/hooks
-4. Test with `claude --plugin-dir .`
-5. Submit a pull request
+1. Fork and clone the repository
+2. Set up the plugin globally using **Option 3** above (or run `/puzzle9900-claude-plugin:generic-setup-claude-plugin-locally`)
+3. Create a feature branch
+4. Add your skills, agents, or hooks
+5. Open a new Claude Code session — your changes are picked up automatically
+6. Submit a pull request
 
 ## License
 
