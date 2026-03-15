@@ -100,3 +100,4 @@ Each skill is a flat folder at the root of `skills/` — no domain or platform s
 - All four content sections (Context, Instructions, Steps, Constraints) must be present and populated
 - `platform` must be omitted entirely (not left blank) for `generic` domain skills
 - Add `disable-model-invocation: true` only when the skill must be explicitly user-invoked
+- **Generic-only policy**: Skills must be fully project-agnostic — no references to specific projects, repos, app names, team names, or organization-specific conventions. If a skill cannot be dropped into any project without modification, it does not belong in this repo.

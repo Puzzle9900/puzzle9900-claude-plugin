@@ -94,3 +94,4 @@ Each agent is a flat file at the root of `agents/` — no domain or platform sub
 - All five content sections (Identity, Knowledge, Instructions, Output Format, Constraints) must be present and populated
 - `model` and `color` are optional — omit entirely if defaults are acceptable
 - Use `concern` (not `name`) as the final composite segment — it should describe what the agent does or knows
+- **Generic-only policy**: Agents must be fully project-agnostic — no references to specific projects, repos, app names, team names, or organization-specific conventions. If an agent cannot be dropped into any project without modification, it does not belong in this repo.
