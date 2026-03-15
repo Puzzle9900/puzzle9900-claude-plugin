@@ -21,198 +21,95 @@ Do **not** use this skill when:
 
 ## Instructions
 
-You are a Claude Code setup assistant. Follow the Steps below in order. Ask the user for the plugin directory path if not already provided. Read the plugin's manifest files to infer the plugin name, marketplace name, and version automatically.
+You are a Claude Code setup assistant. The setup process is automated by a `scripts/setup-local.sh` script that lives inside the plugin repository. Your job is to validate prerequisites, run the script, and confirm the result.
 
 ## Steps
 
-### 1. Gather required information
-Ask the user (or infer from context):
-- **Plugin directory path** — absolute path to the plugin repo (e.g. `/Users/you/projects/my-claude-plugin`)
+### 1. Determine the plugin directory path
+Ask the user (or infer from context) for the **absolute path** to the plugin repo (e.g. `/Users/you/projects/my-claude-plugin`).
 
-Verify the path exists and contains a `.claude-plugin/` subdirectory. If it does not, stop and ask the user to verify the path.
+Verify the path exists and contains both:
+- A `.claude-plugin/` subdirectory
+- A `scripts/setup-local.sh` file
 
-### 2. Read and validate `.claude-plugin/plugin.json`
-Read `<plugin-dir>/.claude-plugin/plugin.json`. Extract the **plugin name** from the `name` field and the **version** from the `version` field. Then ensure:
+If `.claude-plugin/` does not exist, stop and ask the user to verify the path.
+
+If `scripts/setup-local.sh` does not exist, stop and tell the user: "This plugin does not include a `scripts/setup-local.sh` setup script. You can copy one from a plugin that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
+
+### 2. Validate plugin manifests
+Read `<plugin-dir>/.claude-plugin/plugin.json` and ensure:
 - `name` is a non-empty string
 - `version` is a valid semver string (e.g. `"1.0.0"`)
-- `repository` field, if present, is a **string** URL — not an object. If it is an object or causes validation issues, remove the `repository` field entirely.
 - `description` is present and non-empty
+- `repository` field, if present, is a **string** URL — not an object. If it is an object, warn the user and remove it before proceeding.
 
-If the file does not exist, stop and tell the user: "The plugin directory does not contain `.claude-plugin/plugin.json`. This is required. Create the file first or verify the plugin directory path."
+Read `<plugin-dir>/.claude-plugin/marketplace.json` and ensure:
+- `name` is a non-empty string
+- The `plugins` array contains an entry whose `name` matches the plugin name from `plugin.json`
 
-Example of a valid minimal `plugin.json`:
-```json
-{
-  "name": "my-claude-plugin",
-  "description": "Short description of what this plugin provides",
-  "version": "1.0.0",
-  "author": {
-    "name": "Your Name",
-    "email": "you@example.com"
-  },
-  "keywords": ["claude-code"],
-  "license": "MIT"
-}
-```
+If either file is missing or invalid, stop and tell the user what needs to be fixed before running setup.
 
-### 3. Read and validate `.claude-plugin/marketplace.json`
-Read `<plugin-dir>/.claude-plugin/marketplace.json`. Extract the **marketplace name** from the `name` field. If the file does not exist, default the marketplace name to `<plugin-name>-marketplace` and create the file with the structure shown below.
-
-Ensure:
-- `name` is a non-empty string (this is the **marketplace name** used in all subsequent steps)
-- The `plugins` array contains one entry with `name` matching the **plugin name** from Step 2
-- That entry has `source` set to `"./"`
-- `version` in the plugins entry matches the `version` in `plugin.json`
-
-Example:
-```json
-{
-  "name": "my-plugins",
-  "owner": {
-    "name": "Your Name",
-    "email": "you@example.com"
-  },
-  "plugins": [
-    {
-      "name": "my-claude-plugin",
-      "source": "./",
-      "description": "Short description",
-      "version": "1.0.0"
-    }
-  ]
-}
-```
-
-### 4. Register the marketplace in `~/.claude/settings.json`
-Read `~/.claude/settings.json`. Merge the following keys into the existing JSON (preserve all existing keys and values — only add new entries):
-
-- Add `"<plugin-name>@<marketplace-name>": true` inside `enabledPlugins` (create the key if it does not exist).
-- Add the marketplace entry inside `extraKnownMarketplaces` (create the key if it does not exist).
-
-The following entries must be merged into the file (shown in isolation — the file will contain other existing keys):
-```json
-{
-  "enabledPlugins": {
-    "my-claude-plugin@my-plugins": true
-  },
-  "extraKnownMarketplaces": {
-    "my-plugins": {
-      "source": {
-        "source": "directory",
-        "path": "/Users/you/projects/my-claude-plugin"
-      }
-    }
-  }
-}
-```
-
-Do not remove or modify any existing keys in the file. If the plugin key already exists in `enabledPlugins` or `extraKnownMarketplaces`, inform the user and ask whether to overwrite.
-
-### 5. Register the marketplace in `~/.claude/plugins/known_marketplaces.json`
-
-**This is the critical step most setups miss.** `known_marketplaces.json` is Claude Code's authoritative marketplace registry. Even with correct `settings.json` and `installed_plugins.json`, the plugin will **silently fail to load** in new sessions if the marketplace is absent from this file.
-
-Read `~/.claude/plugins/known_marketplaces.json`. If the file does not exist, create it as an empty JSON object `{}` first. Then add an entry for the marketplace:
-
-```json
-"my-plugins": {
-  "source": {
-    "source": "directory",
-    "path": "/Users/you/projects/my-claude-plugin"
-  },
-  "installLocation": "/Users/you/projects/my-claude-plugin",
-  "lastUpdated": "2026-01-15T10:30:00.000Z"
-}
-```
-
-- Both `source.path` and `installLocation` must point to the **same absolute plugin directory path**.
-- `lastUpdated` must be the current time in ISO 8601 format with UTC timezone (e.g. `"2026-01-15T10:30:00.000Z"`).
-
-Preserve all existing entries. If an entry with the same marketplace name already exists, inform the user and ask whether to overwrite.
-
-### 6. Register in `~/.claude/plugins/installed_plugins.json`
-Read `~/.claude/plugins/installed_plugins.json`. This file uses a versioned format. If the file does not exist, create it with this structure:
-
-```json
-{
-  "version": 2,
-  "plugins": {}
-}
-```
-
-Add a new entry inside the `"plugins"` object under the key `"<plugin-name>@<marketplace-name>"`:
-
-```json
-"my-claude-plugin@my-plugins": [
-  {
-    "scope": "user",
-    "installPath": "/Users/you/projects/my-claude-plugin",
-    "version": "1.0.0",
-    "installedAt": "2026-01-15T10:30:00.000Z",
-    "lastUpdated": "2026-01-15T10:30:00.000Z"
-  }
-]
-```
-
-- Set `installPath` to the **plugin source directory** path.
-- Set `scope` to `"user"` for global availability.
-- Set `version` to the version string from `plugin.json` (Step 2).
-- Use the current time in ISO 8601 UTC format for both `installedAt` and `lastUpdated`.
-
-Preserve all existing entries in the `"plugins"` object. Do not add duplicate keys — if the key already exists, inform the user and ask whether to overwrite.
-
-### 7. Create the cache symlink
-
-**This is the step that makes live development work.** Claude Code reads plugin files from its cache at `~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/<version>/`. By default this is a copied directory that goes stale. Replace it with a symlink to the source repo so every session reads live files.
-
-Run these commands (substitute the real values):
+### 3. Run the setup script
+Execute the script from the plugin directory:
 
 ```bash
-# Ensure the parent cache directories exist
-mkdir -p ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>
-
-# Remove any existing cache directory for this version
-rm -rf ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/<version>
-
-# Create symlink from cache path to the source repo
-ln -s /Users/you/projects/my-claude-plugin ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/<version>
+bash <plugin-dir>/scripts/setup-local.sh
 ```
 
-After running the commands, verify the symlink is correct:
+The script automates all registration steps:
+1. Reads plugin name, version, and marketplace name from the manifest files
+2. Updates `~/.claude/settings.json` — adds `enabledPlugins` and `extraKnownMarketplaces` entries
+3. Updates `~/.claude/plugins/known_marketplaces.json` — registers the marketplace source
+4. Updates `~/.claude/plugins/installed_plugins.json` — registers the plugin with scope `"user"`
+5. Creates a cache symlink at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` pointing to the source directory
 
+Watch the script output for any `ERROR` lines. If the script exits with a non-zero status, report the error to the user and stop.
+
+### 4. Verify the result
+After the script completes successfully, confirm it worked by running **all** of these checks:
+
+#### 4a. Cache symlink
 ```bash
 ls -la ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/
 ```
+The version directory should be a symlink (`->`) pointing to the plugin source directory.
 
-Expected output should show the version directory as a symlink arrow (`->`) pointing to the plugin source directory.
+#### 4b. Registered paths point to the correct directory
+Read `~/.claude/plugins/known_marketplaces.json` and `~/.claude/settings.json` and verify that the `path` value for the marketplace matches the **plugin root directory** (the directory containing `.claude-plugin/`). A common failure mode is the path pointing one level too high (the parent directory) or one level too low (a subdirectory like `scripts/`).
 
-### 8. Verify and confirm
-After all files are updated and the symlink is in place, re-read each modified JSON file and verify it is valid JSON (no syntax errors, no missing commas, no trailing commas). If any file has invalid JSON, fix it before proceeding.
+If a path is wrong:
+1. Tell the user which file has the wrong path and what it should be.
+2. Re-run the setup script — the fixed script will overwrite stale values.
+3. If the script itself produced the wrong path, the bug is in the `PLUGIN_DIR` resolution at the top of `setup-local.sh`. The correct line is:
+   ```bash
+   PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+   ```
+   because the script lives in `scripts/` and needs to resolve to the **parent** directory.
 
-Then verify the symlink resolves correctly by listing skills through it:
-
-```bash
-ls ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/<version>/skills/
-```
-
-All skill directories from the source repo should be listed.
+#### 4c. Marketplace file is reachable
+Verify that `<registered-path>/.claude-plugin/marketplace.json` actually exists. If it does not, the registered path is wrong — go back to step 4b.
 
 Then tell the user:
-- Which files were created or modified (list each file path)
-- That the cache symlink was created (show the symlink path and target)
-- The plugin key: `<plugin-name>@<marketplace-name>`
-- The skill prefix to use: `<plugin-name>:<skill-folder-name>` (e.g. `my-claude-plugin:my-skill`)
+- The plugin key: `<plugin-name>@<marketplace-name>` (shown in the script output)
+- The skill prefix to use: `<plugin-name>:<skill-folder-name>`
 - To **open a new Claude Code session** for the changes to take effect
 - **Any change to the plugin repo (new skills, edited skills, git pull) will be picked up on the next session restart — no version bump or reinstall needed**
 
+## What the script does (reference)
+
+This section documents the registration steps for anyone maintaining the script or debugging issues. You do not need to perform these steps — the script handles them.
+
+| Step | File | What is written |
+|------|------|-----------------|
+| Settings | `~/.claude/settings.json` | `enabledPlugins["<plugin>@<marketplace>"] = true` and `extraKnownMarketplaces["<marketplace>"]` with directory source |
+| Known marketplaces | `~/.claude/plugins/known_marketplaces.json` | Marketplace entry with `source`, `installLocation`, and `lastUpdated` |
+| Installed plugins | `~/.claude/plugins/installed_plugins.json` | Plugin entry under `"plugins"` with scope `"user"`, version, and timestamps (file uses `"version": 2` wrapper) |
+| Cache symlink | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Symlink to the plugin source directory — this is what makes live development work |
+
+**Critical:** The `known_marketplaces.json` and cache symlink steps are the ones most manual setups miss. Without `known_marketplaces.json`, the plugin silently fails to load in new sessions. Without the symlink, Claude Code reads from a stale cache copy.
+
 ## Constraints
-- **Always create the cache symlink (Step 7)** — without it, Claude Code reads from a stale copied cache and new/changed skills will not appear
-- **Always update `known_marketplaces.json`** — omitting this step will cause the plugin to silently fail to load outside the plugin's own directory
-- Never overwrite existing entries in `installed_plugins.json` or `known_marketplaces.json` without user confirmation
-- The key format in `enabledPlugins`, `installed_plugins.json`, and `known_marketplaces.json` must all use the same `<marketplace-name>` — it must match the `name` field in `.claude-plugin/marketplace.json`
-- The `repository` field in `plugin.json` must be a string if present — remove it if it is an object or causes errors
+- Do not perform the setup steps manually — always use the `scripts/setup-local.sh` script
 - Do not modify any `env` fields in `settings.json`
-- If `~/.claude/plugins/` directory does not exist, create it before writing any files inside it
-- All timestamps must use ISO 8601 format with UTC timezone suffix `Z` (e.g. `"2026-01-15T10:30:00.000Z"`)
+- If the symlink target directory is moved or deleted, the plugin will fail to load — warn the user not to move the repo without re-running setup
 - The version in `plugin.json` does not need to be bumped for local development — the symlink bypasses version-based cache invalidation entirely
-- If the symlink target directory is moved or deleted, the plugin will fail to load — warn the user not to move the repo without re-running this setup

@@ -43,15 +43,16 @@ claude --plugin-dir ../puzzle9900-claude-plugin
 
 Register the plugin globally so its skills are available in every Claude Code session. Uses a **cache symlink** so that `git pull`, new skills, and edited skills are picked up on the next session restart — no version bump or reinstall needed.
 
-#### Automated setup
+#### Automated setup (recommended)
 
-Use the built-in skill to configure everything:
+Run the setup script from the cloned repo:
 
 ```bash
-/puzzle9900-claude-plugin:generic-setup-claude-plugin-locally
+cd puzzle9900-claude-plugin
+./scripts/setup-local.sh
 ```
 
-It will ask for your plugin directory path and handle all the registration and symlink steps below.
+This registers the plugin, creates the cache symlink, and verifies everything in one step.
 
 #### Manual setup
 
