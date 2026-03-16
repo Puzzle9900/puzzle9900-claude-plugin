@@ -5,7 +5,7 @@
 **Status**: Draft
 
 ## Overview
-A personal framework for shifting from a traditional hands-on engineering mindset to an AI-native one — where the primary skill is not *doing* the work, but *enabling Claude to do the work*. This specification captures the motivation, concerns, guiding principles, and roadmap for an experienced Android and cloud engineer transitioning into an AI-delegated workflow across platforms, starting with iOS as the first unfamiliar territory.
+A personal framework for shifting from a traditional hands-on engineering mindset to an AI-native one — where the primary skill is not *doing* the work, but *enabling Claude to do the work*. This specification captures the motivation, concerns, guiding principles, and roadmap for an experienced engineer transitioning into an AI-delegated workflow across platforms, starting with iOS as the first unfamiliar territory.
 
 ## Motivation
 
