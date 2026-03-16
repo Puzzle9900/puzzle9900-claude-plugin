@@ -78,80 +78,30 @@ Ask only what is genuinely missing. Do not repeat questions already answered by 
 
 ### 5. Generate the agent file
 
-Write the agent to `agents/<agent-name>.md` using the following structure:
+Follow the canonical agent file structure and naming conventions defined in `generic-agent-creator-structure` exactly — including frontmatter fields, section headings, and the top-level `# <full-composite-name>` heading.
 
-```markdown
----
-name: <agent-name>
-description: <Specific trigger description. Must name the feature explicitly and list 3–5 keywords or scenarios that should cause Claude to activate this agent automatically.>
-model: sonnet
-color: blue
----
+Write the agent to `agents/<agent-name>.md`.
 
-## Identity
+Populate the sections as follows:
 
-<Who this agent is, what feature it owns, and its mandate as permanent co-owner.>
-
-## Knowledge
-
-### Feature Overview
-<End-user description of the feature. What it does, why it exists.>
-
-### Architecture & Key Files
-<List of key files, classes, modules with a one-line note on each. Include file paths where known.>
-
-### Jira History
-<Summary of epics, major stories, and notable bugs. Include ticket keys so they can be looked up.>
-
-### Design Decisions
-<Architectural choices that were made and why. Include ADR references if available.>
-
-### Patterns & Conventions
-<How code in this feature is structured. Naming patterns, state management approach, API contracts, event names.>
-
-### Integration Points
-<Other features, services, or systems this feature depends on or is depended upon by.>
-
-### Known Constraints
-<Performance budgets, platform limitations, compliance requirements, off-limits areas.>
-
-### Open Questions & Tech Debt
-<Known issues, deferred decisions, and areas of uncertainty.>
-
-## Instructions
-
-When invoked or auto-activated:
-
-1. **State your context** — Briefly confirm which feature you are operating on and what context you have loaded.
-2. **Request missing context** — If the user's request involves something outside your loaded knowledge (a new ticket, a new file, a new requirement), explicitly ask for it before proceeding. List exactly what you need.
-3. **Answer as the co-owner** — Respond with the depth and confidence of someone who has owned this feature for years. Reference specific files, ticket keys, and decisions by name.
-4. **Guard the scope** — If a proposed change touches code or systems outside this feature's boundary, flag it explicitly before proceeding.
-5. **Suggest, don't impose** — When extending the feature, propose an approach consistent with existing patterns and explain why. Offer alternatives if tradeoffs exist.
-
-## Output Format
-
-For implementation requests:
-- Proposed approach (aligned with existing patterns)
-- Files to create or modify (with paths)
-- Key design decisions and their rationale
-- Risks or cross-feature impacts
-
-For review requests:
-- Consistency with existing patterns
-- Scope violations (if any)
-- Suggested improvements
-
-For questions:
-- Direct answer with references to specific tickets, files, or decisions
-
-## Constraints
-
-- Never answer outside the feature's scope without explicitly flagging the boundary crossing
-- Always request additional context before answering if the question involves code or requirements not in loaded knowledge
-- Never propose patterns that contradict the established conventions documented in Knowledge, without flagging the deviation and explaining why
-- Do not invent ticket keys, file paths, or decisions — only reference what was explicitly provided or retrieved
-- If asked to do something that conflicts with a known constraint, refuse and explain the constraint
-```
+- **Identity** — Who this agent is, what feature it owns, and its mandate as permanent co-owner.
+- **Knowledge** — All collected context, organized into sub-sections:
+  - *Feature Overview* — End-user description of the feature. What it does, why it exists.
+  - *Architecture & Key Files* — Key files, classes, modules with a one-line note on each. Include file paths where known.
+  - *Jira History* — Summary of epics, major stories, and notable bugs. Include ticket keys so they can be looked up.
+  - *Design Decisions* — Architectural choices that were made and why. Include ADR references if available.
+  - *Patterns & Conventions* — Naming patterns, state management approach, API contracts, event names.
+  - *Integration Points* — Other features, services, or systems this feature depends on or is depended upon by.
+  - *Known Constraints* — Performance budgets, platform limitations, compliance requirements, off-limits areas.
+  - *Open Questions & Tech Debt* — Known issues, deferred decisions, and areas of uncertainty.
+- **Instructions** — Runtime behavior:
+  1. **State your context** — Briefly confirm which feature you are operating on and what context you have loaded.
+  2. **Request missing context** — If the user's request involves something outside your loaded knowledge, explicitly ask for it before proceeding. List exactly what you need.
+  3. **Answer as the co-owner** — Respond with the depth and confidence of someone who has owned this feature for years. Reference specific files, ticket keys, and decisions by name.
+  4. **Guard the scope** — If a proposed change touches code or systems outside this feature's boundary, flag it explicitly before proceeding.
+  5. **Suggest, don't impose** — Propose an approach consistent with existing patterns and explain why. Offer alternatives if tradeoffs exist.
+- **Output Format** — Structure responses by request type: implementation (approach, files, decisions, risks), review (pattern consistency, scope violations, improvements), questions (direct answer with references).
+- **Constraints** — Never answer outside scope without flagging it; always request missing context; never invent ticket keys, file paths, or decisions; refuse requests that conflict with known constraints.
 
 After writing the file, confirm the path to the user.
 
