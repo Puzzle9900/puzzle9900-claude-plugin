@@ -87,6 +87,7 @@ Each agent is a flat file at the root of `agents/` — no domain or platform sub
 ---
 
 ## Constraints
+- Agents must be created in the **current working directory** (the project where the user invoked this skill), never in the plugin repository where this skill definition lives
 - Each agent lives as a flat file: `agents/<full-composite-name>.md`
 - The file name (without `.md`) and the `name` frontmatter field must match exactly
 - Never nest agent files inside domain or platform subfolders

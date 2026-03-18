@@ -84,7 +84,7 @@ Follow the canonical agent file structure and naming conventions defined in `gen
 
 Add `last_reviewed: <today's date>` to the agent's frontmatter so staleness can be tracked.
 
-Write the agent to `agents/<agent-name>.md`.
+Write the agent to `agents/<agent-name>.md` **inside the current working directory** (the project where the user invoked this skill), never inside the plugin repository where this skill definition lives.
 
 **Core principle: expertise + pointers, not expertise + data.** The agent must reference authoritative sources at runtime rather than embed static summaries that go stale.
 
@@ -143,6 +143,7 @@ Next steps:
 - The `description` field of the generated agent must contain the feature name and enough specific keywords for Claude to auto-invoke it — never write a generic description
 - Do not skip Step 4 (gap analysis) — an agent with incomplete context is worse than no agent because it gives false confidence
 - Do not generate a placeholder agent with empty Knowledge sections — if no context was provided and none could be fetched, stop and tell the user what is needed before the agent can be created
+- Always create files in the **current working directory**, never in the plugin repository where this skill definition lives
 - Never overwrite an existing agent file without first reading it and asking the user to confirm
 - The generated agent must always include runtime context-request behavior in its Instructions — it must know how to ask for more information, not just fail silently
 - The Knowledge section must contain **pointers to sources** (file paths, glob patterns, doc URLs, ticket projects), not inline summaries of code or architecture — data goes stale, pointers don't

@@ -93,6 +93,7 @@ Each skill is a flat folder at the root of `skills/` — no domain or platform s
 ---
 
 ## Constraints
+- Skills must be created in the **current working directory** (the project where the user invoked this skill), never in the plugin repository where this skill definition lives
 - Each skill lives in its own folder: `skills/<name>/SKILL.md`
 - The folder name and the `name` frontmatter field must match exactly
 - Never nest skill folders inside domain or platform subfolders
