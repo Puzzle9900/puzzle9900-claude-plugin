@@ -4,6 +4,8 @@ description: Creates a feature expert agent file loaded with all available conte
 type: generic
 ---
 
+# generic-agent-feature-expert
+
 ## Context
 
 Large codebases often lose feature knowledge when engineers rotate or leave. This skill addresses that by generating a dedicated agent that acts as the permanent co-owner of a feature. The resulting agent accumulates all available context — Jira history, architecture decisions, key files, patterns, and constraints — and is crafted to auto-activate whenever work on that feature is detected in any future session.
@@ -55,14 +57,14 @@ If the user says they have no sources yet, proceed with Step 3 to gather what is
 
 ### 3. Pull all provided context
 
-For each source provided, fetch its content:
+For each source provided, fetch its content to understand the feature — but remember: the goal is to capture **where to look** and **non-obvious expertise**, not to summarize everything inline.
 
-- **Jira tickets**: call `searchJiraIssuesUsingJql` with `key in (KEY-1, KEY-2, ...)` and `fields: ["*all"]`. Extract: summary, description, acceptance criteria, comments, linked issues, status history.
-- **Confluence pages**: call `getConfluencePage` for each URL provided. Extract the full body.
-- **Local files / codebase samples**: read each file path using the Read tool. Identify key patterns, class names, function signatures, and architectural boundaries.
-- **Repository URLs**: if a GitHub URL is provided, use WebFetch to retrieve READMEs and key source files.
+- **Jira tickets**: call `searchJiraIssuesUsingJql` with `key in (KEY-1, KEY-2, ...)` and `fields: ["*all"]`. Note the epic key and project for the agent's Context Sources. Extract only non-obvious constraints, gotchas, and decisions from ticket descriptions and comments.
+- **Confluence pages**: call `getConfluencePage` for each URL provided. Record the page URL as a Context Source. Extract only architectural decisions and constraints not visible in code.
+- **Local files / codebase samples**: read each file path using the Read tool. Identify the directory structure and glob patterns that cover this feature's code. Note conventions and patterns, but do not transcribe class hierarchies or function signatures — the agent will read these at runtime.
+- **Repository URLs**: if a GitHub URL is provided, use WebFetch to retrieve READMEs and key source files. Record paths for Context Sources.
 
-Summarize what was retrieved before proceeding.
+Summarize what was retrieved and what source pointers were identified before proceeding.
 
 ### 4. Request any missing critical context
 
@@ -80,28 +82,36 @@ Ask only what is genuinely missing. Do not repeat questions already answered by 
 
 Follow the canonical agent file structure and naming conventions defined in `generic-agent-creator-structure` exactly — including frontmatter fields, section headings, and the top-level `# <full-composite-name>` heading.
 
+Add `last_reviewed: <today's date>` to the agent's frontmatter so staleness can be tracked.
+
 Write the agent to `agents/<agent-name>.md`.
+
+**Core principle: expertise + pointers, not expertise + data.** The agent must reference authoritative sources at runtime rather than embed static summaries that go stale.
 
 Populate the sections as follows:
 
 - **Identity** — Who this agent is, what feature it owns, and its mandate as permanent co-owner.
-- **Knowledge** — All collected context, organized into sub-sections:
-  - *Feature Overview* — End-user description of the feature. What it does, why it exists.
-  - *Architecture & Key Files* — Key files, classes, modules with a one-line note on each. Include file paths where known.
-  - *Jira History* — Summary of epics, major stories, and notable bugs. Include ticket keys so they can be looked up.
-  - *Design Decisions* — Architectural choices that were made and why. Include ADR references if available.
-  - *Patterns & Conventions* — Naming patterns, state management approach, API contracts, event names.
+- **Knowledge** — Organized as **pointers to sources** and **non-obvious expertise**, not inline summaries of code:
+  - *Feature Overview* — End-user description of the feature. What it does, why it exists. (This is the one section that can be prose — it rarely changes.)
+  - *Context Sources* — Authoritative locations to read at runtime before answering:
+    - Code paths and glob patterns (e.g., `src/feature/**/*.ts`)
+    - Test directories (e.g., `tests/feature/`)
+    - Spec / design doc paths or URLs
+    - Ticket project or epic keys for lookup (e.g., Jira project `FEAT`, epic `FEAT-100`)
+  - *Patterns & Conventions* — Naming patterns, state management approach, API contracts, event names. Include only conventions not obvious from reading the code.
   - *Integration Points* — Other features, services, or systems this feature depends on or is depended upon by.
-  - *Known Constraints* — Performance budgets, platform limitations, compliance requirements, off-limits areas.
+  - *Known Constraints & Gotchas* — Performance budgets, platform limitations, compliance requirements, off-limits areas, non-obvious pitfalls. This is the highest-value section — capture what a new developer would get wrong.
   - *Open Questions & Tech Debt* — Known issues, deferred decisions, and areas of uncertainty.
+  - Do **NOT** include: inline summaries of class hierarchies, function signatures, architectural details visible in the code, or static Jira ticket summaries. These go stale. Point to where they live instead.
 - **Instructions** — Runtime behavior:
-  1. **State your context** — Briefly confirm which feature you are operating on and what context you have loaded.
-  2. **Request missing context** — If the user's request involves something outside your loaded knowledge, explicitly ask for it before proceeding. List exactly what you need.
-  3. **Answer as the co-owner** — Respond with the depth and confidence of someone who has owned this feature for years. Reference specific files, ticket keys, and decisions by name.
-  4. **Guard the scope** — If a proposed change touches code or systems outside this feature's boundary, flag it explicitly before proceeding.
-  5. **Suggest, don't impose** — Propose an approach consistent with existing patterns and explain why. Offer alternatives if tradeoffs exist.
+  1. **Read current sources first** — Before answering any question, read the files and directories listed in Context Sources. Verify that your understanding matches the current state of the code.
+  2. **Flag divergence** — If the code has changed in ways that contradict your Knowledge section, say so explicitly and re-derive your understanding from the code.
+  3. **Request missing context** — If the user's request involves something outside your loaded knowledge, explicitly ask for it before proceeding. List exactly what you need.
+  4. **Answer as the co-owner** — Respond with the depth and confidence of someone who has owned this feature for years. Reference specific files, ticket keys, and decisions by name.
+  5. **Guard the scope** — If a proposed change touches code or systems outside this feature's boundary, flag it explicitly before proceeding.
+  6. **Suggest, don't impose** — Propose an approach consistent with existing patterns and explain why. Offer alternatives if tradeoffs exist.
 - **Output Format** — Structure responses by request type: implementation (approach, files, decisions, risks), review (pattern consistency, scope violations, improvements), questions (direct answer with references).
-- **Constraints** — Never answer outside scope without flagging it; always request missing context; never invent ticket keys, file paths, or decisions; refuse requests that conflict with known constraints.
+- **Constraints** — Never answer outside scope without flagging it; always read current sources before answering; never invent ticket keys, file paths, or decisions; refuse requests that conflict with known constraints.
 
 After writing the file, confirm the path to the user.
 
@@ -135,3 +145,5 @@ Next steps:
 - Do not generate a placeholder agent with empty Knowledge sections — if no context was provided and none could be fetched, stop and tell the user what is needed before the agent can be created
 - Never overwrite an existing agent file without first reading it and asking the user to confirm
 - The generated agent must always include runtime context-request behavior in its Instructions — it must know how to ask for more information, not just fail silently
+- The Knowledge section must contain **pointers to sources** (file paths, glob patterns, doc URLs, ticket projects), not inline summaries of code or architecture — data goes stale, pointers don't
+- The generated agent's Instructions must include a "read current sources first" step so it self-validates against the live codebase before answering
