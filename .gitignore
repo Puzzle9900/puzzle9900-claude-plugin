@@ -26,3 +26,6 @@ build/
 # Temporary files
 tmp/
 temp/
+
+# Claude session logs
+.claude/sessions/

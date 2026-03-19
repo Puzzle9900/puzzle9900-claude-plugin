@@ -17,3 +17,8 @@ All skills and agents in this repo must be **fully generic and project-agnostic*
 - Project-specific context belongs in each consuming project's own `CLAUDE.md`, not in this plugin
 
 If a skill or agent cannot be copied to any other project without modification, it does not belong here.
+
+## Session Tracking
+
+Session logs are written to `.claude/sessions/<session-id>/session.log` for each Claude session.
+Logs are gitignored and stored locally only. Re-run `/generic-session-tracking` to change this setting.
