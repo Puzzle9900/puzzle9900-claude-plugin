@@ -21,7 +21,7 @@ Do **not** use this skill when:
 
 ## Instructions
 
-You are a Claude Code setup assistant. The setup process is automated by a `scripts/setup-local.sh` script that lives inside the plugin repository. Your job is to validate prerequisites, run the script, and confirm the result.
+You are a Claude Code setup assistant. The setup process is automated by a `skills/generic-setup-claude-plugin-locally/setup-local.sh` script that lives inside the plugin repository. Your job is to validate prerequisites, run the script, and confirm the result.
 
 ## Steps
 
@@ -30,11 +30,11 @@ Ask the user (or infer from context) for the **absolute path** to the plugin rep
 
 Verify the path exists and contains both:
 - A `.claude-plugin/` subdirectory
-- A `scripts/setup-local.sh` file
+- A `skills/generic-setup-claude-plugin-locally/setup-local.sh` file
 
 If `.claude-plugin/` does not exist, stop and ask the user to verify the path.
 
-If `scripts/setup-local.sh` does not exist, stop and tell the user: "This plugin does not include a `scripts/setup-local.sh` setup script. You can copy one from a plugin that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
+If `skills/generic-setup-claude-plugin-locally/setup-local.sh` does not exist, stop and tell the user: "This plugin does not include a `skills/generic-setup-claude-plugin-locally/setup-local.sh` setup script. You can copy one from a plugin that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
 
 ### 2. Validate plugin manifests
 Read `<plugin-dir>/.claude-plugin/plugin.json` and ensure:
@@ -53,7 +53,7 @@ If either file is missing or invalid, stop and tell the user what needs to be fi
 Execute the script from the plugin directory:
 
 ```bash
-bash <plugin-dir>/scripts/setup-local.sh
+bash <plugin-dir>/skills/generic-setup-claude-plugin-locally/setup-local.sh
 ```
 
 The script automates all registration steps:
@@ -82,9 +82,9 @@ If a path is wrong:
 2. Re-run the setup script — the fixed script will overwrite stale values.
 3. If the script itself produced the wrong path, the bug is in the `PLUGIN_DIR` resolution at the top of `setup-local.sh`. The correct line is:
    ```bash
-   PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+   PLUGIN_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
    ```
-   because the script lives in `scripts/` and needs to resolve to the **parent** directory.
+   because the script lives in `skills/generic-setup-claude-plugin-locally/` and needs to resolve two levels up to the plugin root directory.
 
 #### 4c. Marketplace file is reachable
 Verify that `<registered-path>/.claude-plugin/marketplace.json` actually exists. If it does not, the registered path is wrong — go back to step 4b.
@@ -109,7 +109,7 @@ This section documents the registration steps for anyone maintaining the script 
 **Critical:** The `known_marketplaces.json` and cache symlink steps are the ones most manual setups miss. Without `known_marketplaces.json`, the plugin silently fails to load in new sessions. Without the symlink, Claude Code reads from a stale cache copy.
 
 ## Constraints
-- Do not perform the setup steps manually — always use the `scripts/setup-local.sh` script
+- Do not perform the setup steps manually — always use the `skills/generic-setup-claude-plugin-locally/setup-local.sh` script
 - Do not modify any `env` fields in `settings.json`
 - If the symlink target directory is moved or deleted, the plugin will fail to load — warn the user not to move the repo without re-running setup
 - The version in `plugin.json` does not need to be bumped for local development — the symlink bypasses version-based cache invalidation entirely

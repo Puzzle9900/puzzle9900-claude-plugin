@@ -49,7 +49,7 @@ Run the setup script from the cloned repo:
 
 ```bash
 cd puzzle9900-claude-plugin
-./scripts/setup-local.sh
+./skills/generic-setup-claude-plugin-locally/setup-local.sh
 ```
 
 This registers the plugin, creates the cache symlink, and verifies everything in one step.

@@ -1,6 +1,6 @@
 ---
 name: generic-work-item-proposal
-description: Proposes concrete, codebase-grounded work items for a given feature or task. Invoked by generic-work-item-baker after feature context is loaded. Takes feature summaries, code paths, and the user's work intent, then proposes specific implementations, examples, and scenarios.
+description: Proposes concrete, codebase-grounded work items for a given feature or task. Invoked by generic-work-item-scope-definition after feature context is loaded. Takes feature summaries, code paths, and the user's work intent, then proposes specific implementations, examples, and scenarios.
 model: sonnet
 color: blue
 ---

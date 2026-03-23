@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # ── Resolve plugin directory (parent of scripts/) ───────────────────
-PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PLUGIN_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # ── Read plugin name, version, and marketplace name from manifests ───
 if [ ! -f "$PLUGIN_DIR/.claude-plugin/plugin.json" ]; then
