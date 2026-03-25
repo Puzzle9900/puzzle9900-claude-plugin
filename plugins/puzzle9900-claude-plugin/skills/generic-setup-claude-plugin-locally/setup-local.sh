@@ -12,8 +12,12 @@
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Resolve plugin directory (parent of scripts/) ───────────────────
+# ── Resolve plugin directory and marketplace root ────────────────────
+# Script lives at: plugins/<plugin-name>/skills/generic-setup-claude-plugin-locally/setup-local.sh
+# PLUGIN_DIR:      plugins/<plugin-name>/
+# MARKETPLACE_DIR: repo root (contains .claude-plugin/marketplace.json)
 PLUGIN_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+MARKETPLACE_DIR="$(cd "$PLUGIN_DIR/../.." && pwd)"
 
 # ── Read plugin name, version, and marketplace name from manifests ───
 if [ ! -f "$PLUGIN_DIR/.claude-plugin/plugin.json" ]; then
@@ -21,22 +25,23 @@ if [ ! -f "$PLUGIN_DIR/.claude-plugin/plugin.json" ]; then
   exit 1
 fi
 
-if [ ! -f "$PLUGIN_DIR/.claude-plugin/marketplace.json" ]; then
-  echo "ERROR: .claude-plugin/marketplace.json not found in $PLUGIN_DIR"
+if [ ! -f "$MARKETPLACE_DIR/.claude-plugin/marketplace.json" ]; then
+  echo "ERROR: .claude-plugin/marketplace.json not found in $MARKETPLACE_DIR"
   exit 1
 fi
 
 PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['name'])")
 VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")
-MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/marketplace.json'))['name'])")
+MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_DIR/.claude-plugin/marketplace.json'))['name'])")
 PLUGIN_KEY="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 
-echo "Plugin:      $PLUGIN_NAME"
-echo "Version:     $VERSION"
-echo "Marketplace: $MARKETPLACE_NAME"
-echo "Plugin key:  $PLUGIN_KEY"
-echo "Source dir:  $PLUGIN_DIR"
+echo "Plugin:         $PLUGIN_NAME"
+echo "Version:        $VERSION"
+echo "Marketplace:    $MARKETPLACE_NAME"
+echo "Plugin key:     $PLUGIN_KEY"
+echo "Plugin dir:     $PLUGIN_DIR"
+echo "Marketplace dir: $MARKETPLACE_DIR"
 echo ""
 
 # ── Ensure ~/.claude/plugins exists ──────────────────────────────────
@@ -61,7 +66,7 @@ settings['enabledPlugins']['$PLUGIN_KEY'] = True
 settings['extraKnownMarketplaces']['$MARKETPLACE_NAME'] = {
     'source': {
         'source': 'directory',
-        'path': '$PLUGIN_DIR'
+        'path': '$MARKETPLACE_DIR'
     }
 }
 
@@ -86,9 +91,9 @@ with open('$KM_FILE') as f:
 km['$MARKETPLACE_NAME'] = {
     'source': {
         'source': 'directory',
-        'path': '$PLUGIN_DIR'
+        'path': '$MARKETPLACE_DIR'
     },
-    'installLocation': '$PLUGIN_DIR',
+    'installLocation': '$MARKETPLACE_DIR',
     'lastUpdated': '$NOW'
 }
 

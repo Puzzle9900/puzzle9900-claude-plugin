@@ -49,7 +49,7 @@ Run the setup script from the cloned repo:
 
 ```bash
 cd puzzle9900-claude-plugin
-./skills/generic-setup-claude-plugin-locally/setup-local.sh
+./plugins/puzzle9900-claude-plugin/skills/generic-setup-claude-plugin-locally/setup-local.sh
 ```
 
 This registers the plugin, creates the cache symlink, and verifies everything in one step.
@@ -66,7 +66,7 @@ mkdir -p ~/.claude/plugins
 
 **2. Register the marketplace in `~/.claude/settings.json`:**
 
-Add these entries (merge into your existing file — don't overwrite other keys):
+Add these entries (merge into your existing file — don't overwrite other keys). The marketplace path points to the **repo root** (where `marketplace.json` lives):
 
 ```json
 {
@@ -103,6 +103,8 @@ This is the step most setups miss — without it the plugin silently fails to lo
 
 **4. Register in `~/.claude/plugins/installed_plugins.json`:**
 
+The `installPath` points to the **plugin subfolder**, not the repo root:
+
 ```json
 {
   "version": 2,
@@ -110,7 +112,7 @@ This is the step most setups miss — without it the plugin silently fails to lo
     "puzzle9900-claude-plugin@puzzle9900-plugins": [
       {
         "scope": "user",
-        "installPath": "/absolute/path/to/puzzle9900-claude-plugin",
+        "installPath": "/absolute/path/to/puzzle9900-claude-plugin/plugins/puzzle9900-claude-plugin",
         "version": "1.2.0",
         "installedAt": "2026-01-15T10:30:00.000Z",
         "lastUpdated": "2026-01-15T10:30:00.000Z"
@@ -122,19 +124,19 @@ This is the step most setups miss — without it the plugin silently fails to lo
 
 **5. Create the cache symlink (critical step):**
 
-Claude Code always reads plugins from its cache directory, not from `installPath`. Without this symlink, new or changed skills won't appear even after restarting. Replace the cache copy with a symlink to your source repo:
+Claude Code always reads plugins from its cache directory, not from `installPath`. Without this symlink, new or changed skills won't appear even after restarting. The symlink points to the **plugin subfolder**:
 
 ```bash
 mkdir -p ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin
 rm -rf ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/1.2.0
-ln -s /absolute/path/to/puzzle9900-claude-plugin ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/1.2.0
+ln -s /absolute/path/to/puzzle9900-claude-plugin/plugins/puzzle9900-claude-plugin ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/1.2.0
 ```
 
 Verify the symlink works:
 
 ```bash
 ls -la ~/.claude/plugins/cache/puzzle9900-plugins/puzzle9900-claude-plugin/
-# Should show: 1.2.0 -> /absolute/path/to/puzzle9900-claude-plugin
+# Should show: 1.2.0 -> /absolute/path/to/puzzle9900-claude-plugin/plugins/puzzle9900-claude-plugin
 ```
 
 **6. Restart Claude Code** — skills are available immediately. Any change to the plugin repo (new skills, edits, `git pull`) will be picked up on the next session restart with no further action needed.
@@ -153,30 +155,35 @@ Once installed, access skills with the `/puzzle9900-claude-plugin:` prefix:
 /puzzle9900-claude-plugin:generic-contributor-jira-context
 ```
 
-## Plugin Structure
+## Repository Structure
 
 ```
-puzzle9900-claude-plugin/
+puzzle9900-claude-plugin/          # Marketplace root
 ├── .claude-plugin/
-│   └── plugin.json          # Plugin manifest (metadata)
-├── skills/                   # Custom slash commands
-│   └── example/
-│       └── SKILL.md
-├── agents/                   # Specialized AI agents
-│   └── example-agent.md
-├── hooks/                    # Event handlers
-│   └── hooks.json
-├── .mcp.json                 # MCP server configurations (optional)
-├── .lsp.json                 # LSP server configurations (optional)
+│   └── marketplace.json           # Marketplace manifest (lists all plugins)
+├── plugins/                       # One subfolder per plugin
+│   └── puzzle9900-claude-plugin/  # Plugin folder
+│       ├── .claude-plugin/
+│       │   └── plugin.json        # Plugin manifest (metadata)
+│       ├── skills/                # Custom slash commands
+│       │   └── example/
+│       │       └── SKILL.md
+│       ├── agents/                # Specialized AI agents
+│       │   └── example-agent.md
+│       ├── hooks/                 # Event handlers
+│       │   └── hooks.json
+│       └── docs/                  # Plugin documentation
 └── README.md
 ```
 
+To add a new plugin, create `plugins/<your-plugin>/` with a `.claude-plugin/plugin.json` manifest, then add an entry to `.claude-plugin/marketplace.json`.
+
 ## Creating Custom Skills
 
-Add a new skill by creating a directory in `skills/`:
+Add a new skill by creating a directory in your plugin's `skills/` folder:
 
 ```
-skills/
+plugins/puzzle9900-claude-plugin/skills/
 └── my-skill/
     └── SKILL.md
 ```
@@ -194,7 +201,7 @@ Include context, steps, and expected behavior.
 
 ## Creating Custom Agents
 
-Add agents in the `agents/` directory:
+Add agents in your plugin's `agents/` directory:
 
 ```markdown
 <!-- agents/code-reviewer.md -->
@@ -282,7 +289,7 @@ Submit your plugin to Anthropic's official marketplace:
 ## Contributing
 
 1. Fork and clone the repository
-2. Set up the plugin globally using **Option 3** above (or run `/puzzle9900-claude-plugin:generic-setup-claude-plugin-locally`)
+2. Set up the plugin globally using **Option 3** above (or run the setup script)
 3. Create a feature branch
 4. Add your skills, agents, or hooks
 5. Open a new Claude Code session — your changes are picked up automatically

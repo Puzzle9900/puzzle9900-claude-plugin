@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "puzzle9900-claude-plugin",
-      "source": "./",
+      "source": "./plugins/puzzle9900-claude-plugin",
       "description": "Claude Code plugin with generic skills, agents, and hooks for AI-assisted development",
       "version": "1.2.0"
     }
