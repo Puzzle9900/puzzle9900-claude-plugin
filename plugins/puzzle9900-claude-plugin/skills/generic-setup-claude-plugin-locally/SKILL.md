@@ -1,15 +1,15 @@
 ---
 name: generic-setup-claude-plugin-locally
-description: Set up a local Claude Code plugin globally using a symlink so changes are picked up on every session restart with no version bump or reinstall.
+description: Set up a local multi-plugin Claude Code marketplace repository globally using symlinks so changes are picked up on every session restart with no version bump or reinstall.
 type: generic
 ---
 
 # generic-setup-claude-plugin-locally
 
 ## Context
-Use this skill when you need to register a local Claude Code plugin directory as a globally available plugin **for active development**.
+Use this skill when you need to register a local Claude Code marketplace repository as globally available **for active development**. This skill supports repositories that contain multiple plugins under a single marketplace.
 
-**Why a symlink?** Claude Code always copies marketplace plugins into a version-stamped cache directory (`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`). Even if `installPath` in `installed_plugins.json` points to your source directory, Claude Code reads from the cache. If you add or change skills without bumping the version, new sessions keep loading the stale cache. The symlink approach replaces the cache directory with a symbolic link to your source repo, so Claude Code reads live files every time.
+**Why a symlink?** Claude Code always copies marketplace plugins into a version-stamped cache directory (`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`). If you add or change skills without bumping the version, new sessions keep loading the stale cache. The symlink approach replaces each cache directory with a symbolic link to the plugin's source directory, so Claude Code reads live files every time.
 
 Use this skill when:
 - You are developing a plugin locally and want every change (new skills, edited skills, new agents) picked up on the next session restart — no version bump, no `plugin update`, no cache clearing.
@@ -21,95 +21,118 @@ Do **not** use this skill when:
 
 ## Instructions
 
-You are a Claude Code setup assistant. The setup process is automated by a `skills/generic-setup-claude-plugin-locally/setup-local.sh` script that lives inside the plugin repository. Your job is to validate prerequisites, run the script, and confirm the result.
+You are a Claude Code setup assistant. The setup process is automated by a `setup-local.sh` script that lives inside the repository. Your job is to validate prerequisites, run the script, and confirm the result.
+
+## Repo structure
+
+This skill expects a **multi-plugin marketplace repository** with the following layout:
+
+```
+<repo>/
+  .claude-plugin/
+    marketplace.json       ← marketplace name + list of plugins with source paths
+  plugins/
+    <plugin-a>/
+      .claude-plugin/
+        plugin.json        ← name, version, description for this plugin
+      skills/
+        ...
+    <plugin-b>/
+      .claude-plugin/
+        plugin.json
+      skills/
+        ...
+        generic-setup-claude-plugin-locally/
+          setup-local.sh   ← this script
+```
 
 ## Steps
 
-### 1. Determine the plugin directory path
-Ask the user (or infer from context) for the **absolute path** to the plugin repo (e.g. `/Users/you/projects/my-claude-plugin`).
+### 1. Determine the repo path
+Ask the user (or infer from context) for the **absolute path** to the repo root (e.g. `/Users/you/projects/my-claude-plugin`).
 
-Verify the path exists and contains both:
-- A `.claude-plugin/` subdirectory
-- A `skills/generic-setup-claude-plugin-locally/setup-local.sh` file
+Verify the path exists and contains:
+- `.claude-plugin/marketplace.json`
+- A `setup-local.sh` file in the same folder as this skill
 
-If `.claude-plugin/` does not exist, stop and ask the user to verify the path.
+If `marketplace.json` does not exist, stop and ask the user to verify the path.
 
-If `skills/generic-setup-claude-plugin-locally/setup-local.sh` does not exist, stop and tell the user: "This plugin does not include a `skills/generic-setup-claude-plugin-locally/setup-local.sh` setup script. You can copy one from a plugin that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
+If `setup-local.sh` does not exist, stop and tell the user: "This repository does not include a `setup-local.sh` setup script. You can copy one from a repository that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
 
-### 2. Validate plugin manifests
-Read `<plugin-dir>/.claude-plugin/plugin.json` and ensure:
+### 2. Validate the marketplace manifest
+Read `<repo>/.claude-plugin/marketplace.json` and ensure:
 - `name` is a non-empty string
-- `version` is a valid semver string (e.g. `"1.0.0"`)
-- `description` is present and non-empty
-- `repository` field, if present, is a **string** URL — not an object. If it is an object, warn the user and remove it before proceeding.
+- `plugins` is a non-empty array where each entry has:
+  - `name` — non-empty string
+  - `version` — valid semver string (e.g. `"1.0.0"`)
+  - `source` — relative path to the plugin directory (e.g. `"./plugins/generic/"`)
 
-Read `<plugin-dir>/.claude-plugin/marketplace.json` and ensure:
-- `name` is a non-empty string
-- The `plugins` array contains an entry whose `name` matches the plugin name from `plugin.json`
+For each plugin entry, resolve `<repo>/<source>` and verify:
+- The directory exists
+- It contains `.claude-plugin/plugin.json`
+- `plugin.json` has a non-empty `name` and valid `version`
 
-If either file is missing or invalid, stop and tell the user what needs to be fixed before running setup.
+If anything is missing or invalid, stop and tell the user what to fix before running setup.
 
 ### 3. Run the setup script
-Execute the script from the plugin directory:
+Execute the script from the repo:
 
 ```bash
-bash <plugin-dir>/skills/generic-setup-claude-plugin-locally/setup-local.sh
+bash <path-to-this-skill>/setup-local.sh
 ```
 
-The script automates all registration steps:
-1. Reads plugin name, version, and marketplace name from the manifest files
-2. Updates `~/.claude/settings.json` — adds `enabledPlugins` and `extraKnownMarketplaces` entries
-3. Updates `~/.claude/plugins/known_marketplaces.json` — registers the marketplace source
-4. Updates `~/.claude/plugins/installed_plugins.json` — registers the plugin with scope `"user"`
-5. Creates a cache symlink at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` pointing to the source directory
+The script automates all registration steps for **every plugin** listed in `marketplace.json`:
+1. Reads marketplace name from `.claude-plugin/marketplace.json`
+2. Updates `~/.claude/settings.json` — adds one `extraKnownMarketplaces` entry (per marketplace) and one `enabledPlugins` entry per plugin
+3. Updates `~/.claude/plugins/known_marketplaces.json` — registers the marketplace source pointing to the repo root
+4. For each plugin: updates `~/.claude/plugins/installed_plugins.json` and creates a cache symlink at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` pointing to the plugin's source directory
 
 Watch the script output for any `ERROR` lines. If the script exits with a non-zero status, report the error to the user and stop.
 
 ### 4. Verify the result
-After the script completes successfully, confirm it worked by running **all** of these checks:
+After the script completes, confirm it worked by running **all** of these checks:
 
-#### 4a. Cache symlink
+#### 4a. Cache symlinks
+For each plugin listed in `marketplace.json`:
 ```bash
 ls -la ~/.claude/plugins/cache/<marketplace-name>/<plugin-name>/
 ```
-The version directory should be a symlink (`->`) pointing to the plugin source directory.
+Each version directory should be a symlink (`->`) pointing to the plugin's source directory (e.g. `<repo>/plugins/<plugin-name>/`).
 
-#### 4b. Registered paths point to the correct directory
-Read `~/.claude/plugins/known_marketplaces.json` and `~/.claude/settings.json` and verify that the `path` value for the marketplace matches the **plugin root directory** (the directory containing `.claude-plugin/`). A common failure mode is the path pointing one level too high (the parent directory) or one level too low (a subdirectory like `scripts/`).
+#### 4b. Registered path points to the repo root
+Read `~/.claude/plugins/known_marketplaces.json` and `~/.claude/settings.json` and verify that the `path` value for the marketplace matches the **repo root** (the directory containing `.claude-plugin/`).
 
 If a path is wrong:
 1. Tell the user which file has the wrong path and what it should be.
 2. Re-run the setup script — the fixed script will overwrite stale values.
-3. If the script itself produced the wrong path, the bug is in the `PLUGIN_DIR` resolution at the top of `setup-local.sh`. The correct line is:
+3. If the script itself produced the wrong path, the bug is in the `REPO_DIR` resolution at the top of `setup-local.sh`. The correct line is:
    ```bash
-   PLUGIN_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+   REPO_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
    ```
-   because the script lives in `skills/generic-setup-claude-plugin-locally/` and needs to resolve two levels up to the plugin root directory.
+   because the script lives three levels deep (`<plugin>/skills/<skill>/`) inside the plugin directory, and the plugin directory itself lives one level below the repo root (`plugins/<plugin>/`), totalling four levels from the repo root. Adjust if your plugin directory is nested differently.
 
 #### 4c. Marketplace file is reachable
 Verify that `<registered-path>/.claude-plugin/marketplace.json` actually exists. If it does not, the registered path is wrong — go back to step 4b.
 
 Then tell the user:
-- The plugin key: `<plugin-name>@<marketplace-name>` (shown in the script output)
-- The skill prefix to use: `<plugin-name>:<skill-folder-name>`
+- Each plugin key: `<plugin-name>@<marketplace-name>` (shown in the script output)
+- The skill prefix for each plugin: `<plugin-name>:<skill-folder-name>`
 - To **open a new Claude Code session** for the changes to take effect
-- **Any change to the plugin repo (new skills, edited skills, git pull) will be picked up on the next session restart — no version bump or reinstall needed**
+- **Any change to the repo (new skills, edited skills, git pull) will be picked up on the next session restart — no version bump or reinstall needed**
 
 ## What the script does (reference)
 
-This section documents the registration steps for anyone maintaining the script or debugging issues. You do not need to perform these steps — the script handles them.
-
 | Step | File | What is written |
 |------|------|-----------------|
-| Settings | `~/.claude/settings.json` | `enabledPlugins["<plugin>@<marketplace>"] = true` and `extraKnownMarketplaces["<marketplace>"]` with directory source |
-| Known marketplaces | `~/.claude/plugins/known_marketplaces.json` | Marketplace entry with `source`, `installLocation`, and `lastUpdated` |
-| Installed plugins | `~/.claude/plugins/installed_plugins.json` | Plugin entry under `"plugins"` with scope `"user"`, version, and timestamps (file uses `"version": 2` wrapper) |
-| Cache symlink | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Symlink to the plugin source directory — this is what makes live development work |
+| Settings | `~/.claude/settings.json` | One `extraKnownMarketplaces["<marketplace>"]` entry (repo root path) + one `enabledPlugins["<plugin>@<marketplace>"] = true` per plugin |
+| Known marketplaces | `~/.claude/plugins/known_marketplaces.json` | Marketplace entry with `source`, `installLocation` (repo root), and `lastUpdated` |
+| Installed plugins | `~/.claude/plugins/installed_plugins.json` | One plugin entry per plugin with scope `"user"`, version, and timestamps |
+| Cache symlinks | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Symlink to each plugin's source directory |
 
-**Critical:** The `known_marketplaces.json` and cache symlink steps are the ones most manual setups miss. Without `known_marketplaces.json`, the plugin silently fails to load in new sessions. Without the symlink, Claude Code reads from a stale cache copy.
+**Critical:** The `known_marketplaces.json` and cache symlink steps are the ones most manual setups miss. Without `known_marketplaces.json`, plugins silently fail to load in new sessions. Without the symlinks, Claude Code reads from a stale cache copy.
 
 ## Constraints
-- Do not perform the setup steps manually — always use the `skills/generic-setup-claude-plugin-locally/setup-local.sh` script
+- Do not perform the setup steps manually — always use `setup-local.sh`
 - Do not modify any `env` fields in `settings.json`
-- If the symlink target directory is moved or deleted, the plugin will fail to load — warn the user not to move the repo without re-running setup
-- The version in `plugin.json` does not need to be bumped for local development — the symlink bypasses version-based cache invalidation entirely
+- If any plugin's source directory is moved or deleted, that plugin will fail to load — warn the user not to move the repo without re-running setup
+- Plugin versions in `marketplace.json` do not need to be bumped for local development — the symlinks bypass version-based cache invalidation entirely

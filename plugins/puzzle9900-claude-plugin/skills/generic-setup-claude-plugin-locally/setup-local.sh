@@ -2,59 +2,42 @@
 # ──────────────────────────────────────────────────────────────────────
 # setup-local.sh
 #
-# Registers this plugin globally for Claude Code using a cache symlink
-# so every change (new skills, edits, git pull) is picked up on the
-# next session restart — no version bump or reinstall needed.
+# Registers all plugins in this marketplace repository globally for
+# Claude Code using cache symlinks so every change is picked up on
+# the next session restart — no version bump or reinstall needed.
 #
-# Usage:
-#   cd puzzle9900-claude-plugin
-#   ./setup-local.sh
+# Usage (from any directory):
+#   bash /path/to/plugins/generic/skills/generic-setup-claude-plugin-locally/setup-local.sh
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ── Resolve plugin directory and marketplace root ────────────────────
-# Script lives at: plugins/<plugin-name>/skills/generic-setup-claude-plugin-locally/setup-local.sh
-# PLUGIN_DIR:      plugins/<plugin-name>/
-# MARKETPLACE_DIR: repo root (contains .claude-plugin/marketplace.json)
-PLUGIN_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-MARKETPLACE_DIR="$(cd "$PLUGIN_DIR/../.." && pwd)"
+# ── Resolve repo root (4 levels up: <skill>/ → skills/ → <plugin>/ → plugins/ → repo/) ──
+REPO_DIR="$(cd "$(dirname "$0")/../../../.." && pwd)"
 
-# ── Read plugin name, version, and marketplace name from manifests ───
-if [ ! -f "$PLUGIN_DIR/.claude-plugin/plugin.json" ]; then
-  echo "ERROR: .claude-plugin/plugin.json not found in $PLUGIN_DIR"
+MARKETPLACE_FILE="$REPO_DIR/.claude-plugin/marketplace.json"
+if [ ! -f "$MARKETPLACE_FILE" ]; then
+  echo "ERROR: .claude-plugin/marketplace.json not found in $REPO_DIR"
   exit 1
 fi
 
-if [ ! -f "$MARKETPLACE_DIR/.claude-plugin/marketplace.json" ]; then
-  echo "ERROR: .claude-plugin/marketplace.json not found in $MARKETPLACE_DIR"
-  exit 1
-fi
-
-PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['name'])")
-VERSION=$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")
-MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_DIR/.claude-plugin/marketplace.json'))['name'])")
-PLUGIN_KEY="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
+MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_FILE'))['name'])")
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
 
-echo "Plugin:         $PLUGIN_NAME"
-echo "Version:        $VERSION"
-echo "Marketplace:    $MARKETPLACE_NAME"
-echo "Plugin key:     $PLUGIN_KEY"
-echo "Plugin dir:     $PLUGIN_DIR"
-echo "Marketplace dir: $MARKETPLACE_DIR"
+echo "Marketplace: $MARKETPLACE_NAME"
+echo "Repo:        $REPO_DIR"
 echo ""
 
-# ── Ensure ~/.claude/plugins exists ──────────────────────────────────
 mkdir -p ~/.claude/plugins
 
 # ── 1. Update ~/.claude/settings.json ────────────────────────────────
 SETTINGS_FILE="$HOME/.claude/settings.json"
-if [ ! -f "$SETTINGS_FILE" ]; then
-  echo "{}" > "$SETTINGS_FILE"
-fi
+[ ! -f "$SETTINGS_FILE" ] && echo "{}" > "$SETTINGS_FILE"
 
 python3 -c "
-import json, sys
+import json
+
+with open('$MARKETPLACE_FILE') as f:
+    marketplace = json.load(f)
 
 with open('$SETTINGS_FILE') as f:
     settings = json.load(f)
@@ -62,13 +45,16 @@ with open('$SETTINGS_FILE') as f:
 settings.setdefault('enabledPlugins', {})
 settings.setdefault('extraKnownMarketplaces', {})
 
-settings['enabledPlugins']['$PLUGIN_KEY'] = True
 settings['extraKnownMarketplaces']['$MARKETPLACE_NAME'] = {
     'source': {
         'source': 'directory',
-        'path': '$MARKETPLACE_DIR'
+        'path': '$REPO_DIR'
     }
 }
+
+for plugin in marketplace.get('plugins', []):
+    key = plugin['name'] + '@$MARKETPLACE_NAME'
+    settings['enabledPlugins'][key] = True
 
 with open('$SETTINGS_FILE', 'w') as f:
     json.dump(settings, f, indent=2)
@@ -78,9 +64,7 @@ echo "[OK] Updated $SETTINGS_FILE"
 
 # ── 2. Update ~/.claude/plugins/known_marketplaces.json ──────────────
 KM_FILE="$HOME/.claude/plugins/known_marketplaces.json"
-if [ ! -f "$KM_FILE" ]; then
-  echo "{}" > "$KM_FILE"
-fi
+[ ! -f "$KM_FILE" ] && echo "{}" > "$KM_FILE"
 
 python3 -c "
 import json
@@ -91,9 +75,9 @@ with open('$KM_FILE') as f:
 km['$MARKETPLACE_NAME'] = {
     'source': {
         'source': 'directory',
-        'path': '$MARKETPLACE_DIR'
+        'path': '$REPO_DIR'
     },
-    'installLocation': '$MARKETPLACE_DIR',
+    'installLocation': '$REPO_DIR',
     'lastUpdated': '$NOW'
 }
 
@@ -103,13 +87,25 @@ with open('$KM_FILE', 'w') as f:
 "
 echo "[OK] Updated $KM_FILE"
 
-# ── 3. Update ~/.claude/plugins/installed_plugins.json ───────────────
+# ── 3 & 4. Per-plugin: installed_plugins.json + cache symlink ────────
 IP_FILE="$HOME/.claude/plugins/installed_plugins.json"
-if [ ! -f "$IP_FILE" ]; then
-  echo '{"version": 2, "plugins": {}}' > "$IP_FILE"
-fi
+[ ! -f "$IP_FILE" ] && echo '{"version": 2, "plugins": {}}' > "$IP_FILE"
 
-python3 -c "
+PLUGIN_COUNT=$(python3 -c "import json; print(len(json.load(open('$MARKETPLACE_FILE')).get('plugins', [])))")
+
+for i in $(seq 0 $((PLUGIN_COUNT - 1))); do
+  PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_FILE'))['plugins'][$i]['name'])")
+  PLUGIN_SOURCE=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_FILE'))['plugins'][$i]['source'])")
+  VERSION=$(python3 -c "import json; print(json.load(open('$MARKETPLACE_FILE'))['plugins'][$i]['version'])")
+  PLUGIN_DIR="$(cd "$REPO_DIR/$PLUGIN_SOURCE" && pwd)"
+  PLUGIN_KEY="${PLUGIN_NAME}@${MARKETPLACE_NAME}"
+
+  echo ""
+  echo "── $PLUGIN_NAME ($VERSION) ──"
+  echo "   Dir: $PLUGIN_DIR"
+
+  # Update installed_plugins.json
+  python3 -c "
 import json
 
 with open('$IP_FILE') as f:
@@ -130,45 +126,43 @@ with open('$IP_FILE', 'w') as f:
     json.dump(ip, f, indent=2)
     f.write('\n')
 "
-echo "[OK] Updated $IP_FILE"
+  echo "   [OK] Registered in installed_plugins.json"
 
-# ── 4. Create cache symlink (the critical step) ─────────────────────
-CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
-CACHE_VERSION_DIR="$CACHE_DIR/$VERSION"
+  # Create cache symlink
+  CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
+  CACHE_VERSION_DIR="$CACHE_DIR/$VERSION"
+  mkdir -p "$CACHE_DIR"
 
-mkdir -p "$CACHE_DIR"
-
-if [ -L "$CACHE_VERSION_DIR" ]; then
-  CURRENT_TARGET=$(readlink "$CACHE_VERSION_DIR")
-  if [ "$CURRENT_TARGET" = "$PLUGIN_DIR" ]; then
-    echo "[OK] Cache symlink already correct: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
-  else
-    rm "$CACHE_VERSION_DIR"
+  if [ -L "$CACHE_VERSION_DIR" ]; then
+    CURRENT_TARGET=$(readlink "$CACHE_VERSION_DIR")
+    if [ "$CURRENT_TARGET" = "$PLUGIN_DIR" ]; then
+      echo "   [OK] Cache symlink already correct: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
+    else
+      rm "$CACHE_VERSION_DIR"
+      ln -s "$PLUGIN_DIR" "$CACHE_VERSION_DIR"
+      echo "   [OK] Updated cache symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
+    fi
+  elif [ -d "$CACHE_VERSION_DIR" ]; then
+    rm -rf "$CACHE_VERSION_DIR"
     ln -s "$PLUGIN_DIR" "$CACHE_VERSION_DIR"
-    echo "[OK] Updated cache symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
+    echo "   [OK] Replaced cache dir with symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
+  else
+    ln -s "$PLUGIN_DIR" "$CACHE_VERSION_DIR"
+    echo "   [OK] Created cache symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
   fi
-elif [ -d "$CACHE_VERSION_DIR" ]; then
-  rm -rf "$CACHE_VERSION_DIR"
-  ln -s "$PLUGIN_DIR" "$CACHE_VERSION_DIR"
-  echo "[OK] Replaced cache directory with symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
-else
-  ln -s "$PLUGIN_DIR" "$CACHE_VERSION_DIR"
-  echo "[OK] Created cache symlink: $CACHE_VERSION_DIR -> $PLUGIN_DIR"
-fi
+done
 
-# ── 5. Verify ────────────────────────────────────────────────────────
-echo ""
-SKILL_COUNT=$(ls -d "$CACHE_VERSION_DIR/skills/"*/ 2>/dev/null | wc -l | tr -d ' ')
-AGENT_COUNT=$(ls "$CACHE_VERSION_DIR/agents/"*.md 2>/dev/null | wc -l | tr -d ' ')
-
-echo "── Verification ──"
-echo "Skills found: $SKILL_COUNT"
-echo "Agents found: $AGENT_COUNT"
 echo ""
 echo "── Setup complete ──"
-echo "Restart Claude Code to pick up the plugin."
-echo "Skill prefix: $PLUGIN_NAME:<skill-name>"
+echo "Restart Claude Code to pick up all plugins."
+echo ""
+echo "Registered plugins:"
+python3 -c "
+import json
+marketplace = json.load(open('$MARKETPLACE_FILE'))
+for p in marketplace.get('plugins', []):
+    print(f\"  {p['name']}@$MARKETPLACE_NAME  —  skill prefix: {p['name']}:<skill-name>\")
+"
 echo ""
 echo "Any changes to this repo (new skills, edits, git pull) will be"
-echo "picked up on the next session restart — no version bump or"
-echo "reinstall needed."
+echo "picked up on the next session restart — no version bump or reinstall needed."
