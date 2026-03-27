@@ -42,22 +42,16 @@ This skill expects a **multi-plugin marketplace repository** with the following 
         plugin.json
       skills/
         ...
-        generic-setup-claude-plugin-locally/
-          setup-local.sh   ← this script
 ```
+
+> **Note:** `setup-local.sh` lives inside this skill (in the `puzzle9900-claude-plugin` repo), not in the target repository. The skill passes the target repo path to the script at runtime.
 
 ## Steps
 
 ### 1. Determine the repo path
-Ask the user (or infer from context) for the **absolute path** to the repo root (e.g. `/Users/you/projects/my-claude-plugin`).
+Use the **current working directory** (`$PWD`) as the target repo root. Only ask the user for a different path if the working directory clearly does not contain a `.claude-plugin/marketplace.json`.
 
-Verify the path exists and contains:
-- `.claude-plugin/marketplace.json`
-- A `setup-local.sh` file in the same folder as this skill
-
-If `marketplace.json` does not exist, stop and ask the user to verify the path.
-
-If `setup-local.sh` does not exist, stop and tell the user: "This repository does not include a `setup-local.sh` setup script. You can copy one from a repository that has it, or perform the setup manually." Do not attempt to create the script or perform the steps by hand.
+Verify the repo root contains `.claude-plugin/marketplace.json`. If it does not, stop and ask the user to confirm the correct path.
 
 ### 2. Validate the marketplace manifest
 Read `<repo>/.claude-plugin/marketplace.json` and ensure:
@@ -75,10 +69,15 @@ For each plugin entry, resolve `<repo>/<source>` and verify:
 If anything is missing or invalid, stop and tell the user what to fix before running setup.
 
 ### 3. Run the setup script
-Execute the script from the repo:
+Execute the script, passing the target repo path as the first argument:
 
 ```bash
-bash <path-to-this-skill>/setup-local.sh
+bash <path-to-this-skill>/setup-local.sh <repo-path>
+```
+
+For example, if the user is in `/Users/you/projects/my-marketplace`:
+```bash
+bash /path/to/puzzle9900-claude-plugin/skills/generic-setup-claude-plugin-locally/setup-local.sh /Users/you/projects/my-marketplace
 ```
 
 The script automates all registration steps for **every plugin** listed in `marketplace.json`:
@@ -130,6 +129,31 @@ Then tell the user:
 | Cache symlinks | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Symlink to each plugin's source directory |
 
 **Critical:** The `known_marketplaces.json` and cache symlink steps are the ones most manual setups miss. Without `known_marketplaces.json`, plugins silently fail to load in new sessions. Without the symlinks, Claude Code reads from a stale cache copy.
+
+## Auto-update hook (optional)
+
+To keep a project-scoped plugin up to date at session start, add a `SessionStart` hook to the **project's** `.claude/settings.json`:
+
+```json
+"SessionStart": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "claude plugin marketplace update <marketplace-id> && claude plugin update --scope project <plugin>@<marketplace-id>",
+        "timeout": 60,
+        "statusMessage": "Updating marketplace..."
+      }
+    ]
+  }
+]
+```
+
+**Two common mistakes to avoid:**
+
+1. **Do not add a `matcher` field to `SessionStart`.** The `matcher` field only applies to tool events (`PreToolUse` / `PostToolUse`). Adding it to `SessionStart` causes a hook error and the command will not run.
+
+2. **Always pass `--scope project` to `claude plugin update`.** The default scope is `user`. If the plugin was enabled in a project `settings.json` (i.e. `enabledPlugins` lives in `.claude/settings.json`, not `~/.claude/settings.json`), omitting `--scope project` causes: `Error: Plugin is not installed at scope user`.
 
 ## Constraints
 - Do not perform the setup steps manually — always use `setup-local.sh`
