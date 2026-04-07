@@ -22,7 +22,7 @@ For each scenario it:
 
 ## Inputs
 
-- `skill` (optional): skill name matching a folder in both `tdd/` and `.claude/skills/`. If omitted, lists all available test suites.
+- `skill` (optional): skill name matching a folder in both `tdd/` and `.claude/skills/`. Use `all` to run every suite. If omitted, lists available suites.
 
 ## Instructions
 
@@ -45,6 +45,27 @@ Available TDD suites:
   ...
 
 Run: /generic-skill-tdd-runner <skill-name>
+     /generic-skill-tdd-runner all         to run every suite
+```
+Then stop.
+
+#### 1b — If `skill` is `all`, run every suite in sequence
+
+Discover all suites:
+```bash
+ls "$REPO_ROOT/tdd/"
+```
+For each folder containing a `test.md`, execute steps 3–7 in sequence. Collect results and print a combined summary after all suites complete:
+```
+═══════════════════════════════════════════════
+TDD Full Suite Report
+═══════════════════════════════════════════════
+<skill-1>    ✓ PASS  (N/N scenarios)
+<skill-2>    ✗ FAIL  (N-1/N scenarios)
+...
+───────────────────────────────────────────────
+Overall: <suites-passed>/<total-suites> suites | <scenarios-passed>/<total-scenarios> scenarios
+═══════════════════════════════════════════════
 ```
 Then stop.
 
