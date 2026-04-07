@@ -23,7 +23,6 @@ For each scenario it:
 ## Inputs
 
 - `skill` (optional): skill name matching a folder in both `tdd/` and `.claude/skills/`. If omitted, lists all available test suites.
-- `scenario` (optional): integer — run only scenario N; if omitted, run all scenarios
 
 ## Instructions
 
@@ -46,7 +45,6 @@ Available TDD suites:
   ...
 
 Run: /generic-skill-tdd-runner <skill-name>
-     /generic-skill-tdd-runner <skill-name> scenario=<N>   to run a single scenario
 ```
 Then stop.
 
@@ -79,8 +77,6 @@ Read `tdd/<skill>/test.md` and extract the following structure:
   - **Acceptance Criteria**: each `- [ ] <text>` line (unchecked checkboxes only)
   - **Evaluation bash**: the fenced bash block under `### Evaluation`
 
-If the `scenario` input was provided, filter to only the matching scenario number. If the scenario number does not exist in the file, stop with:
-> Scenario <N> not found in `tdd/<skill>/test.md`. The file contains <M> scenario(s).
 
 ### 4. Run Setup
 
