@@ -65,6 +65,9 @@ Skip this step if no Jira key was provided.
 
 Claude does not export `--dangerously-skip-permissions` as an environment variable. Detect it by inspecting the parent process command line — from within a Bash tool call, `$PPID` is the Claude process:
 
+Log before running:
+> "Checking if current session was started with --dangerously-skip-permissions so the new session can inherit the same permission level..."
+
 ```bash
 ps -p $PPID -o command= | grep -q -- '--dangerously-skip-permissions' && echo "true" || echo "false"
 ```
