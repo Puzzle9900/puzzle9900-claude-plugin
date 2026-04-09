@@ -23,6 +23,17 @@ This skill is Phase 5 — the final step in the work item pipeline.
 - Must have an Implementation Report listing the files that were created or modified
 - `gh` CLI must be installed and authenticated
 
+## Mode
+
+Resolve `mode` before the first step, in this order:
+1. `mode` parameter passed by the caller (e.g. from `generic-work-item-full-implementation-workflow`)
+2. `mode` field in `.workflow` — read with the Read tool if the file exists at the worktree root
+3. Default: `auto`
+
+**autonomous** — skip all confirmation gates; proceed end-to-end without stopping
+**auto** — stop only at genuine decision gates
+**pause** — stop after every step
+
 ## Steps
 
 ### 0. Load context

@@ -86,7 +86,7 @@ Invoke `generic-work-item-workflow-state` with `operation: update, current_phase
 **autonomous/auto:** output exactly this line before invoking the sub-skill:
 > "**[Phase 1/4]** Running preparation — will proceed to Phase 2 automatically."
 
-Invoke `generic-work-item-preparation` with `ticket` and `work_dir`.
+Invoke `generic-work-item-preparation` with `ticket`, `work_dir`, and `mode`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 1], current_phase: 2` immediately after the skill returns.
 
@@ -104,7 +104,7 @@ Invoke `generic-work-item-workflow-state` with `operation: update, current_phase
 **autonomous/auto:** output exactly this line before invoking the sub-skill:
 > "**[Phase 2/4]** Running technical scope — will proceed to Phase 3 automatically."
 
-Invoke `generic-work-item-pre-implementation-tech-scope` with `ticket` and `work_dir`.
+Invoke `generic-work-item-pre-implementation-tech-scope` with `ticket`, `work_dir`, and `mode`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 2], current_phase: 3` immediately after the skill returns.
 
@@ -122,7 +122,7 @@ Invoke `generic-work-item-workflow-state` with `operation: update, current_phase
 **autonomous/auto:** output exactly this line before invoking the sub-skill:
 > "**[Phase 3/4]** Running implementation — will proceed to Phase 4 automatically."
 
-Invoke `generic-work-item-implementation-start` with `ticket` and `work_dir`.
+Invoke `generic-work-item-implementation-start` with `ticket`, `work_dir`, and `mode`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 3], current_phase: 4` immediately after the skill returns.
 
@@ -135,7 +135,7 @@ Invoke `generic-work-item-workflow-state` with `operation: update, completed_pha
 
 Invoke `generic-work-item-workflow-state` with `operation: update, current_phase: 4`.
 
-Invoke `generic-work-item-ship` with `ticket` and `work_dir`.
+Invoke `generic-work-item-ship` with `ticket`, `work_dir`, and `mode`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 4], current_phase: 5` immediately after the skill returns.
 
@@ -156,6 +156,7 @@ In autonomous mode, after each phase completes, invoke the next phase in the sam
 - This skill runs inside a worktree session — never call `EnterWorktree` or switch CWD
 - `work_dir` = `pwd` at session start — read from `.workflow`, no derivation needed
 - Do not end your response turn between phase transitions in autonomous mode — write `.workflow`, show one-line status, invoke next phase without stopping
+- Always pass `mode` to every sub-skill invocation — never let sub-skills resolve mode independently when called from this orchestrator
 - This skill only orchestrates — it never writes code, reads the codebase, modifies Jira, or creates spec files directly
 - Each phase is fully delegated to its skill; do not replicate their internal logic here
 - All state file operations go through `generic-work-item-workflow-state` — never raw Read or Write tool calls on `.workflow`

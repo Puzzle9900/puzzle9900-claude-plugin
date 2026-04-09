@@ -46,8 +46,14 @@ loop forever:
         - "{KEY1} — {summary1}"
         - "{KEY2} — {summary2}"
         - ... (one option per ticket)
+        - "Continue"  // skip this iteration, go straight to wait
+      multiSelect: true
 
-    selected = user selection
+    if user selected "Continue":
+      goto wait  // skip ticket processing, proceed to sleep
+
+    selected = user selection  // excludes "Refresh"
+    if "All tickets" in selected: selected = all tickets
 
     for each ticket in selected (serially):
       log("[{now}] {ticket.key} — invoking setup skill")
@@ -95,9 +101,14 @@ If tickets found, use the AskUserQuestion tool with:
 - options:
   - `All tickets`
   - One option per ticket: `{KEY} — {summary}`
+  - `Continue` — skip this iteration and proceed to the wait without processing any tickets
 - multiSelect: true
 
-If the user selects "All tickets", process every ticket in the list. Otherwise process only the selected ones.
+If the user selects **Continue**: proceed directly to 2e (wait). Never stop the loop.
+If the user selects **All tickets**: process every ticket in the list.
+Otherwise: process only the selected tickets.
+
+The loop never presents a stop option and never asks for confirmation to keep running.
 
 **2d. For each selected ticket — serially**
 

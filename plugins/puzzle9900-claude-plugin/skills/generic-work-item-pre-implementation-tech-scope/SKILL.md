@@ -23,6 +23,17 @@ Nothing is written back to Jira — Jira is a read-only source in this workflow.
 
 **Not this skill:** if the intention is not yet defined (missing problem statement, unclear scope) → use `generic-work-item-preparation` first.
 
+## Mode
+
+Resolve `mode` before the first step, in this order:
+1. `mode` parameter passed by the caller (e.g. from `generic-work-item-full-implementation-workflow`)
+2. `mode` field in `.workflow` — read with the Read tool if the file exists at the worktree root
+3. Default: `auto`
+
+**autonomous** — skip all confirmation gates; proceed end-to-end without stopping
+**auto** — stop only at genuine decision gates
+**pause** — stop after every step
+
 ## Steps
 
 ### 0. Detect input
