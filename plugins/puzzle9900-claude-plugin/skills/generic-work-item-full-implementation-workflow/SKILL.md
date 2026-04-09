@@ -28,29 +28,52 @@ It can also be invoked manually inside a worktree session:
 
 ## State File
 
-`.claude/.workflow` is always present when this skill starts — written by `generic-work-item-worktree-setup` before this session was opened. All reads and writes go through `generic-work-item-workflow-state`.
+`.claude/.workflow` is created by this skill on first run inside the worktree session. All reads and writes go through `generic-work-item-workflow-state`.
 
-`work_dir` = the current working directory (`pwd`) — this session IS the worktree, so no derivation is needed.
+`work_dir` = `pwd` at session start — this session IS the worktree.
 
 ## Steps
 
-### 0. Load state
+### 0. Initialize or resume
+
+Run:
+```bash
+pwd
+```
+Store as `work_dir`.
 
 Invoke `generic-work-item-workflow-state` with `operation: read`.
 
-The state file is always present. If it is missing, stop and tell the user:
-> "No `.claude/.workflow` found. This skill must be launched via `generic-work-item-worktree-setup` from the main repo session, or run from inside an existing worktree that already has a state file."
+**Path A — state file exists (resuming):**
 
-From state, load: `ticket`, `work_dir`, `mode`, `current_phase`, `completed_phases`.
+Load: `ticket`, `work_dir`, `mode`, `current_phase`, `completed_phases`.
+
+Show:
+> "Resuming **{ticket}** — {mode} mode. Phase {current_phase}. Completed: {completed_phases}."
+
+Proceed to the step for `current_phase`.
+
+**Path B — no state file (fresh start):**
+
+Ask for run mode using the AskUserQuestion tool with options for the user to select from:
+- question: `Choose a run mode for this workflow:`
+- options:
+  - `autonomous — no stops; Claude makes all decisions with its best judgment`
+  - `auto — stops only for genuine decisions (feature lists, spec approval, impact queue)`
+  - `pause — stops between every phase`
+
+Default to `auto` if dismissed without selecting. Store as `mode`.
+
+Read `SLACK_NOTIFY_CHANNEL` from `CLAUDE.md` if present (`SLACK_NOTIFY_CHANNEL: {value}`), else `null`.
+
+Invoke `generic-work-item-workflow-state` with `operation: create` and all values: `ticket` (from `-p` argument), `repo` (from `git rev-parse --show-toplevel`), `work_dir`, `worktree` (from `git rev-parse --show-prefix`), `branch` (from `git branch --show-current`), `mode`, `slack_notify_channel`.
 
 Show startup banner:
-> "**{TICKET}** — {mode} mode. Starting from Phase {current_phase}. Completed: {completed_phases}."
+> "**{ticket}** — {mode} mode. Starting Phase 1."
 
-Transition ticket to In Progress (see below), then proceed immediately to the step for `current_phase`.
-
-**Ticket transition:**
+**Ticket transition (both paths):**
 1. `getTransitionsForJiraIssue(key)`
-2. If status is Draft or Ready → call `transitionJiraIssue(key, transitionId)` for In Progress
+2. If status is Draft or Ready → `transitionJiraIssue(key, transitionId)` to In Progress
 3. If already In Progress or later → skip
 4. If Atlassian MCP unavailable → skip silently
 
