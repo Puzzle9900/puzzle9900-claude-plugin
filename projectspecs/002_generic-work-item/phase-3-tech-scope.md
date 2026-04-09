@@ -1,21 +1,26 @@
-# Generic Work Item Technical Definition
+# Generic Work Item Pre-Implementation Tech Scope
 
-**Milestone**: 003_generic-work-item-technical-definition
+**Milestone**: 003_generic-work-item-pre-implementation-tech-scope
 **Created**: 2026-03-26
 **Status**: Draft
 
 ## Overview
 
-A master skill that takes a work item with a clean, structured intention and produces a **Technical Definition** — the technical translation of that intention. It identifies which areas of the codebase are affected, what data contracts must exist, and a checklist of what must be true before implementation begins. It does not specify how to implement anything.
+A master skill that takes a work item with a clean, structured intention and produces a complete **Technical Specification** document saved in `projectspecs/`. It identifies which areas of the codebase are affected, what data contracts must exist, and a checklist of what must be true before implementation begins. It does not specify how to implement anything. Jira is used only as a read source — nothing is written back to it.
 
 This skill is the third step in the work item pipeline:
 
 ```
 generic-work-item-preparation
-  → (clean intention, defined features)
-generic-work-item-technical-definition   ← this milestone
-  → (technical definition: areas, contracts, checklist)
-[implementation]
+  → (clean intention, Jira updated)
+generic-work-item-worktree-setup
+  → (worktree created, CWD = feature branch)
+generic-work-item-pre-implementation-tech-scope   ← this milestone
+  → (technical scope: areas, contracts, checklist)
+generic-work-item-implementation-start
+  → (implemented solution, reviewed and verified)
+generic-work-item-ship
+  → (draft PR, approved)
 ```
 
 ---
@@ -33,21 +38,26 @@ Step 0: Detect source(s)
   └─ Neither → ask user or accept pasted intent
         │
         ▼
-Step 1: Extract intention, AC, related features, platform
+Step 1: Extract intention, AC, keywords, related features, platform
         │
         ▼
 Step 2: Gate — confirm feature list with user
         │
         ▼
 Step 3: Launch one sub-agent per feature (in parallel)
+  pre-step: search agents/**/*<feature>*expert*.md for each feature
   agent: generic-work-item-feature-technical-scope
-  Each returns an Area Impact Block:
-    - Module path
-    - Data contracts
-    - Capability needs
-    - Dependencies
-    - Constraints
-    - Checklist items
+  Each agent runs:
+    Phase 0: read local expert agent if found (code paths, constraints, patterns)
+    Phase 1: map sub-areas (Glob/Grep)
+    Phase 2: investigate sub-areas in parallel
+    Phase 3: merge into Area Impact Block:
+      - Module path
+      - Data contracts
+      - Capability needs
+      - Dependencies
+      - Constraints
+      - Checklist items
         │
         ▼
 Step 4: Reviewer synthesizes all blocks
@@ -62,9 +72,9 @@ Step 4: Reviewer synthesizes all blocks
 Step 5: Gate — user approves or edits
         │
         ▼
-Step 6: Persist
-  ├─ Append ## Technical Definition to Jira ticket (if active source)
-  └─ Append ## Technical Definition to local spec file (if active source)
+Step 6: Save
+  └─ Create projectspecs/<number>_<name>/technical-scope.md
+       (or as sibling if a spec.md already exists for this work item)
 ```
 
 ---
@@ -86,13 +96,17 @@ Step 6: Persist
 - [ ] Accept pasted intention text when no source can be loaded (paste-only mode)
 - [ ] Detect and surface conflicts when Jira and spec disagree on features or intention
 - [ ] Confirm feature list with user before investigation begins (user can add/remove)
+- [ ] Before launching feature agents, search the consuming project's `agents/` directory for local feature expert agents matching each feature name
+- [ ] Pass the expert agent path (or `"none"`) to each feature scope agent alongside other context
 - [ ] Launch one `generic-work-item-feature-technical-scope` agent per feature, in parallel
-- [ ] Pass each feature agent: feature name, code path hints, intention, acceptance criteria, platform
+- [ ] Pass each feature agent: feature name, expert agent path, code path hints, intention, acceptance criteria, platform, keywords (used as Glob/Grep seeds)
 - [ ] Launch one `generic-work-item-technical-reviewer` agent after all feature agents complete
-- [ ] Gate on user approval of the Technical Definition before persisting
-- [ ] Append `## Technical Definition` to Jira ticket description (never overwrite)
-- [ ] Append `## Technical Definition` to local spec file that was read (never create a new one unless in paste-only mode)
-- [ ] Report which sources were updated and which were skipped (with reason)
+- [ ] Gate on user approval of the Technical Specification before saving
+- [ ] Never write back to Jira — it is a read-only source
+- [ ] Never modify existing spec files — always create a new `technical-scope.md`
+- [ ] Create `projectspecs/<number>_<name>/technical-scope.md` as the canonical output
+- [ ] If a `spec.md` already exists for this work item, create `technical-scope.md` as a sibling in the same folder
+- [ ] Report the path of the created file on completion
 
 ### Non-Functional Requirements
 
@@ -119,9 +133,18 @@ The skill enforces a strict boundary between *technical definition* and *impleme
 ### Agent Architecture
 
 ```
-Master Skill (generic-work-item-technical-definition)
+Master Skill (generic-work-item-pre-implementation-tech-scope)
+  │
+  ├─ [pre-step] Glob agents/**/*<feature>*expert*.md for each feature
+  │     → if found: pass expert agent path to feature scope agent
+  │     → if not found: pass "none", agent falls back to codebase exploration
   │
   ├─ [parallel] generic-work-item-feature-technical-scope (feature 1)
+  │     Phase 0: read local expert agent (if available) → extract code paths + constraints
+  │     Phase 1: map sub-areas via Glob/Grep
+  │     Phase 2: investigate sub-areas in parallel
+  │     Phase 3: merge into Area Impact Block
+  │
   ├─ [parallel] generic-work-item-feature-technical-scope (feature 2)
   ├─ [parallel] generic-work-item-feature-technical-scope (feature N)
   │
@@ -131,7 +154,7 @@ Master Skill (generic-work-item-technical-definition)
 ### Output Format (canonical, appended to sources)
 
 ```markdown
-## Technical Definition
+## Technical Scope
 
 ### Scope Summary
 <2-3 sentences: what the system must technically support>
@@ -157,12 +180,12 @@ Master Skill (generic-work-item-technical-definition)
 
 ### Source Handling
 
-| Active source(s) | Load from | Persist to |
+| Active source(s) | Load from | Output |
 |---|---|---|
-| Jira only | Atlassian MCP | Jira description (append) |
-| Local spec only | File read | Same spec file (append) |
-| Both | Both | Both (append to each) |
-| Paste-only | User paste | Offer `generic-spec` or skip |
+| Jira only | Atlassian MCP (read-only) | New `projectspecs/<number>_<name>/technical-scope.md` |
+| Local spec only | File read (read-only) | `technical-scope.md` sibling in same spec folder |
+| Both | Both (read-only) | `technical-scope.md` sibling in existing spec folder, or new folder if none |
+| Paste-only | User paste | New `projectspecs/<number>_<name>/technical-scope.md` |
 
 ---
 
@@ -181,7 +204,8 @@ Master Skill (generic-work-item-technical-definition)
 
 ## Dependencies
 
-- `002_generic-work-item-preparation` — upstream; produces the clean intention this skill consumes
+- `002_generic-work-item-worktree-setup` — upstream (Phase 2); establishes the worktree CWD where technical-scope.md will be saved
+- `002_generic-work-item-preparation` — upstream (Phase 1); produces the clean intention this skill consumes
 - `generic-spec` skill — used in paste-only mode to create a new spec if none exists
 - `generic-jira-contributor-context` — not required by this skill (already resolved upstream)
 - Atlassian MCP — required for Jira source; skill degrades gracefully when unavailable
@@ -190,9 +214,9 @@ Master Skill (generic-work-item-technical-definition)
 
 ## Success Criteria
 
-- A developer can run this skill after preparation and receive a Technical Definition without writing any code
+- A developer can run this skill after preparation and receive a complete `technical-scope.md` document without writing any code
 - The output is free of implementation language and can be read by a non-engineer to understand what the system must support
-- The Technical Definition is appended to both the Jira ticket and local spec without overwriting any existing sections
+- The document is always created as a new file — Jira and existing spec files are never modified
 - Feature agents correctly identify module paths and data contracts from the actual codebase
 - The reviewer surfaces cross-cutting concerns (analytics events, auth, error states) not caught by individual feature agents
 - Gaps (modules not found) are surfaced explicitly rather than silently omitted

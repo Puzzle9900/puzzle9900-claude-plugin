@@ -1,22 +1,24 @@
 ---
-name: generic-work-item-technical-definition
-description: Translates a clean intention (from a Jira ticket, a local spec file, or both) into a technical definition — which codebase areas are affected, what data contracts must exist, and a checklist of what must be true before implementation begins. Does not define how to implement.
+name: generic-work-item-pre-implementation-tech-scope
+description: Use when a work item has a clean intention and you need to understand the technical landscape before implementation begins — investigates affected codebase areas, defines required data contracts, and produces a full technical specification document in projectspecs/ ready to guide implementation. Works from a Jira ticket, a local spec file, or both as read sources. Does not define how to implement.
 ---
 
-# generic-work-item-technical-definition
+# generic-work-item-pre-implementation-tech-scope
 
 ## Overview
 
-Bridges the gap between a clean intention (what and why) and implementation (how). Works from any source that contains a structured intention: a Jira ticket, a local spec file under `projectspecs/`, or both when they are linked. For each feature area, a sub-agent deeply reads the codebase and returns an **Area Impact Block**: relevant module paths, required data contracts, capability needs, and constraints. A final reviewer synthesizes all blocks into a unified **Technical Definition** that is appended back to whatever source(s) were used.
+Bridges the gap between a clean intention (what and why) and implementation (how). Reads the work item from a Jira ticket, a local spec file under `projectspecs/`, or both. For each related feature area, a sub-agent deeply reads the codebase and returns an **Area Impact Block**: relevant module paths, required data contracts, capability needs, and constraints. A final reviewer synthesizes all blocks into a complete **Technical Specification** document that is saved as a new entry in `projectspecs/`.
+
+Nothing is written back to Jira — Jira is a read-only source in this workflow. The canonical output is always a local `projectspecs/` document.
 
 **Scope boundary:** this workflow identifies *where* things must happen and *what technical contracts must exist* — not *how* to implement them. Boundary is at the module/interface level, not method/line level.
 
 ## When to Use
 
-- "Define the technical definition for PROJ-123"
-- "Run the technical definition for projectspecs/002_checkout-flow/spec.md"
+- "Run the pre-implementation tech scope for PROJ-123"
+- "Run the pre-implementation tech scope for projectspecs/002_checkout-flow/spec.md"
 - "What technically needs to happen for this work item?"
-- "Run the technical definition before I start implementing"
+- "Scope the technical requirements before I start implementing"
 - After `generic-work-item-preparation` has finished — whether it produced a Jira ticket, a local spec, or both
 
 **Not this skill:** if the intention is not yet defined (missing problem statement, unclear scope) → use `generic-work-item-preparation` first.
@@ -25,17 +27,17 @@ Bridges the gap between a clean intention (what and why) and implementation (how
 
 ### 0. Detect input
 
-Parse the user's message for the following sources (one or more may be present):
+Parse the user's message for the following read sources (one or more may be present):
 
 | Input type | Detection | Action |
 |---|---|---|
-| **Jira ticket key** | e.g. `PROJ-123` or Jira URL | Fetch via Atlassian MCP |
+| **Jira ticket key** | e.g. `PROJ-123` or Jira URL | Fetch via Atlassian MCP — read only |
 | **Local spec path** | e.g. `projectspecs/002_name/spec.md` or spec number `002` | Read file directly |
 | **Both linked** | Key present in spec file or spec path in Jira description | Load from both and cross-reference |
 | **Context from previous step** | Running right after preparation | Source already known — proceed |
-| **Nothing provided** | No identifiers in message | Ask: "What should I build the technical definition for? Provide a Jira ticket key, a spec path, or paste the intention directly." |
+| **Nothing provided** | No identifiers in message | Ask: "What should I build the technical scope for? Provide a Jira ticket key, a spec path, or paste the intention directly." |
 
-Store the **active source(s)** — this determines where the final Technical Definition is persisted in Step 6.
+Note: sources are **read-only** — this skill never writes back to Jira or modifies existing spec files.
 
 ### 1. Load intention context
 
@@ -50,6 +52,7 @@ Load from each active source:
 - If the file does not exist: warn the user and ask them to confirm the path or provide it
 
 **Extract from whichever source(s) are loaded:**
+- **Title** (ticket summary or spec title — used to name the new spec document)
 - **Intention** (`## Intention` or `## Problem` + `## Intention`)
 - **Acceptance Criteria** (`## Acceptance Criteria`)
 - **Related Features** (`## Related Features`)
@@ -59,32 +62,40 @@ If neither source has a `## Related Features` section or intention: warn the use
 
 If both sources are loaded and they conflict (e.g. different feature lists), surface the conflict and ask the user which to use as the canonical source before proceeding.
 
-**Intent-only fallback:** if no source can be loaded and the user pastes context directly, accept it and work in paste-only mode — no Jira or spec updates at the end.
+**Intent-only fallback:** if no source can be loaded and the user pastes context directly, accept it and proceed — the output spec will still be created.
 
 ### 2. Confirm investigation scope
 
 Display a summary for user confirmation:
 
 ```
-Source: <Jira KEY — title> | <spec path> | both
+Source: <Jira KEY — title> | <spec path> | both (read-only)
 Platform: <platform>
 Features to investigate:
   1. <feature name>
   2. <feature name>
   ...
+Output: new projectspecs/ document
 ```
 
 Ask: **"Should I investigate all these features, or would you like to add/remove any before I start?"**
 
 Do not proceed until confirmed. If the user adjusts the list, update it and re-display before confirming.
 
+**Autonomous mode:** skip confirmation — proceed immediately with the discovered feature list.
+
 ### 3. Parallel feature investigation
+
+Before launching feature agents, check for local feature expert agents in the consuming project:
+- Glob `agents/**/*-<feature-keyword>*expert*.md` and `agents/**/*<feature-keyword>*.md` for each feature
+- If a match is found, it is a specialized agent with deep context about that feature — pass its path to the feature scope agent so it can be invoked as a primary source before any codebase exploration
 
 For each confirmed feature, invoke the `generic-work-item-feature-technical-scope` agent. Run all agents **in parallel** — do not wait for one before launching the next.
 
 Pass to each agent:
 ```
 Feature: <feature name>
+Feature expert agent: <path to local agent file, or "none">
 Code path hints: <hints from Related Features list, e.g. "checkout/", "PaymentRepository">
 Ticket intention: <full intention section text>
 Acceptance criteria: <full AC list>
@@ -111,75 +122,55 @@ Checklist items:
 
 Once all feature agents have returned, aggregate their Area Impact Blocks. Invoke the `generic-work-item-technical-reviewer` agent with:
 - All Area Impact Blocks (full content)
-- Original ticket intention
+- Work item title
+- Original intention
 - Acceptance criteria
 - Platform
+- Source reference (Jira key and/or spec path — for linking in the output doc)
 
-The reviewer produces the final **Technical Definition** in the canonical output format.
+The reviewer produces a complete **Technical Specification** in the canonical document format.
 
 ### 5. User approval
 
-Present the full Technical Definition to the user:
+Present the full Technical Specification to the user and ask: **"Does this technical specification look right? Approve to save, request edits, or flag specific items to revisit."**
 
-```
-## Technical Definition
+Allow free-text corrections before saving. If the user requests changes to specific areas, update those items inline and re-present the affected section before saving.
 
-### Scope Summary
-<...>
+Do not save until explicitly approved.
 
-### Areas of Impact
-<per-feature blocks>
+**Autonomous mode:** skip approval — save the Technical Specification immediately.
 
-### Technical Checklist
-<unified checklist>
+### 6. Save to projectspecs/
 
-### Open Technical Questions
-<...>
-```
+Create a new project spec document using the `generic-spec` skill pattern:
 
-Ask: **"Does this technical definition look right? Approve to save, request edits, or flag specific items to revisit."**
+- Determine the next available spec number (find the highest `###_*` folder under `projectspecs/` and increment)
+- Derive a kebab-case folder name from the work item title (e.g. `checkout-saved-payment-methods`)
+- Create `projectspecs/<number>_<name>/technical-scope.md` with the full Technical Specification content
+- If a `spec.md` already exists for this work item (linked from source), create `technical-scope.md` as a sibling document in the same folder rather than a new numbered folder
 
-Allow free-text corrections before persisting. If the user requests changes to specific areas, update those items inline and re-present the affected section before saving.
-
-Do not persist until explicitly approved.
-
-### 6. Persist
-
-Persist back to every active source identified in Step 0. Always append — never overwrite existing sections.
-
-**Jira (active source = Jira or both):**
-- Append `## Technical Definition` as a new section to the existing ticket description
-- Use `editJiraIssue` to update the description
-- If MCP became unavailable after Step 1: skip silently, report at the end
-
-**Local spec file (active source = spec or both):**
-- Append the Technical Definition section to the spec file that was read in Step 1
-- Write directly to the file — do not create a new spec
-
-**No active source (paste-only mode):**
-- Offer to save to a new local spec via `generic-spec`, or skip
-- Do not attempt Jira update
-
-Confirm at the end with: each source that was updated (Jira URL and/or spec file path), and any source that was skipped with the reason.
+Confirm with: the path to the created file and the source(s) it was derived from.
 
 ## Constraints
 
+- In auto or autonomous mode, do not end your response turn between steps — execute all steps in sequence without stopping; only pause at explicit user gates in pause mode
 - Never proceed from step to step without explicit user confirmation — every step ends with a gate
-- Never persist (Jira or spec) without Step 5 approval
+- Never save without Step 5 approval
+- Never write back to Jira — it is a read-only source
+- Never modify existing spec files — always create a new `technical-scope.md`
 - Never define *how* to implement — only *what must exist* and *where*
 - Never invent file paths or contract names that were not discovered by reading the actual codebase
 - Each sub-agent receives complete context in its invocation prompt — do not rely on shared state between agents
-- The Technical Definition always appends to existing content — never replaces intention or other sections
 - If a feature agent returns no findings (e.g. code path not found), surface this gap explicitly rather than silently omitting it
-- If Atlassian MCP is unavailable, skip Jira as a source and persist to local spec only; if local spec is also unavailable, offer paste-only mode
-- If both Jira and spec are active sources and they conflict, always ask the user which is canonical before proceeding — never silently prefer one
+- If Atlassian MCP is unavailable, skip Jira as a source and continue with local spec or pasted intent
+- If both Jira and spec are active sources and they conflict, always ask the user which is canonical before proceeding
 - Boundary enforcement: if any output contains implementation language (method names, syntax, injection patterns), ask the reviewer to strip it before presenting to the user
 
 ## Boundary Reference
 
 Use this to judge whether output is in scope:
 
-| Allowed — Technical Definition | Not Allowed — Implementation |
+| Allowed — Technical Scope | Not Allowed — Implementation |
 |-------------------------------|------------------------------|
 | `SavedPaymentMethod { id, lastFour, type }` | `data class SavedPaymentMethod(val id: String...)` |
 | "PaymentRepository needs CRUD for SavedPaymentMethod" | "Add `save(method)` to `PaymentRepositoryImpl`" |

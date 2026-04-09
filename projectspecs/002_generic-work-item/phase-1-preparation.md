@@ -113,6 +113,13 @@ Observable, testable conditions that confirm the intention was met — not imple
 - [ ] Criterion 1
 - [ ] Criterion 2
 
+## Keywords
+Domain and product vocabulary that identifies the scope of this work item. Used by downstream
+phases to seed codebase searches and expert agent discovery. No implementation terms.
+- <product area or domain term>
+- <user-facing feature name>
+- <Jira epic / label / component name>
+
 ## Related Features
 Top-level features that this work item touches or depends on (populated by generic-work-item-feature-linker).
 
@@ -126,6 +133,7 @@ Unresolved questions that must be answered before or during implementation.
 **Behavior**:
 - Draft all sections using the ticket title, any existing description, and the output of `generic-work-item-feature-linker`
 - Keep acceptance criteria behavioral ("the user can…", "the system returns…") — never implementation-level ("add a method to…")
+- **Keywords**: extract 3–10 domain/product terms from the ticket title, description, epic, labels, and related features. Use only product-level vocabulary (e.g. `payments`, `dark mode`, `location sharing`) — no class names, file paths, or library names. These terms are passed to the tech scope phase as Glob/Grep seeds and to the implementation phase for expert agent discovery (`agents/**/*{keyword}*expert*.md`).
 - Present the full draft section by section; allow the user to revise any section without a full rewrite
 - Do not include solution language: no architecture choices, no library names, no code references
 
@@ -173,6 +181,17 @@ Unresolved questions that must be answered before or during implementation.
 **Behavior**:
 - **Ticket exists**: Update the Jira ticket via Atlassian MCP — title, all changed fields, and description
 - **No ticket**: Save the enriched content as a local product spec file under `projectspecs/` using the `generic-spec` skill format
+
+**Token health check (before any Jira write)**:
+Before calling `editJiraIssue` or `createJiraIssue`, verify the Atlassian OAuth token is still live by calling `getAccessibleAtlassianResources`. This is a lightweight read that returns quickly.
+
+| Result | Action |
+|---|---|
+| Success | Proceed with the write call |
+| Auth error (token expired / 401) | Surface the error explicitly, prompt the user to re-authenticate, then **retry from the beginning of Phase 6** |
+| Connection refused / timeout | MCP server is unavailable — fall back to local-only mode (save via `generic-spec`) |
+
+This distinguishes token expiry (recoverable with re-auth + retry) from server unavailability (silent local fallback). Never treat an auth error the same as a missing server.
 
 **Output**: A confirmation message with the Jira ticket URL or local file path.
 
@@ -273,6 +292,7 @@ Existing skills reused:
 - [ ] Intention output must never contain solution language (no architecture, no implementation steps, no library names)
 - [ ] Feature linker must stop at top-level entry points — must not recurse into feature internals
 - [ ] Graceful degradation: if a sub-agent is unavailable, the master skill explains the gap and continues
+- [ ] Atlassian token expiry (auth error) must trigger re-authentication and retry — never silently fall back to local-only mode on an auth failure
 
 ---
 

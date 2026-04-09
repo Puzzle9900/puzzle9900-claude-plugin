@@ -1,10 +1,10 @@
 ---
-name: generic-permissions-setup
+name: generic-claude-initial-setup
 description: Analyze a Claude Code project and generate a permissions allow-list of safe, commonly-used commands to reduce permission prompts. Use when the user wants to pre-approve commands or set up permissions for a project.
 type: generic
 ---
 
-# generic-permissions-setup
+# generic-claude-initial-setup
 
 ## Context
 Every Claude Code project prompts the user for permission on each new command pattern. For projects with well-known toolchains (Node/npm, Python, Go, Rust, Java/Gradle, etc.), most of the prompts are for safe, read-only, or build-related commands that the user will always approve. This skill detects the project's tech stack and generates a tailored `permissions.allow` list so the user can drop it into their `.claude/settings.json` (or `.claude/settings.local.json`) and dramatically reduce noise.
@@ -230,14 +230,70 @@ Analyze the current project to detect its tech stack, build tools, and common wo
 
 4. **Check for existing settings** — read `.claude/settings.json` and `.claude/settings.local.json` if they exist. Merge new entries with any existing `permissions.allow` list without duplicating.
 
-5. **Present the result to the user** with:
+5. **Ask the user to pick a completion sound** — present a numbered list and let them choose one (or skip):
+
+   ```
+   Which sound should play when Claude Code finishes a task?
+
+    1. Basso
+    2. Blow
+    3. Bottle
+    4. Frog
+    5. Funk
+    6. Glass
+    7. Hero
+    8. Morse
+    9. Ping
+   10. Pop
+   11. Purr
+   12. Sosumi
+   13. Submarine
+   14. Tink
+   15. Spoken: "Task complete" (uses macOS say command)
+   16. No sound — skip this
+
+   Enter a number:
+   ```
+
+   Map the selection to a shell command:
+   - Options 1–14 → `afplay /System/Library/Sounds/<Name>.aiff`
+   - Option 15 → `say "Task complete"`
+   - Option 16 → skip hook creation entirely
+
+6. **Present the result to the user** with:
    - A summary of detected tech stacks
-   - The full JSON block ready to paste or apply
+   - The full JSON block ready to paste or apply (permissions + Stop hook if a sound was chosen)
    - Ask the user which settings file they want to write to:
      - `.claude/settings.json` — shared with team (committed to git)
      - `.claude/settings.local.json` — personal only (gitignored)
 
-6. **Apply only after user confirmation** — write the permissions block into the chosen settings file, preserving any other existing settings.
+7. **Apply only after user confirmation** — write to the chosen settings file, preserving any other existing settings:
+
+   a) Merge the `permissions.allow` array (no duplicates).
+
+   b) If a sound was chosen, create `.claude/hooks/play-song.sh` with this content:
+   ```bash
+   #!/bin/bash
+   <selected-command>
+   ```
+   Make it executable (`chmod +x .claude/hooks/play-song.sh`).
+
+   Then add (or merge) the `Stop` hook in the settings file:
+   ```json
+   "hooks": {
+     "Stop": [
+       {
+         "hooks": [
+           {
+             "type": "command",
+             "command": "bash .claude/hooks/play-song.sh"
+           }
+         ]
+       }
+     ]
+   }
+   ```
+   If a `hooks` key already exists, merge `Stop` into it without overwriting other hook types.
 
 ## Constraints
 - Never include commands that **push, deploy, publish, or delete** (e.g., `git push`, `npm publish`, `docker rm`, `terraform apply`, `rm -rf`)

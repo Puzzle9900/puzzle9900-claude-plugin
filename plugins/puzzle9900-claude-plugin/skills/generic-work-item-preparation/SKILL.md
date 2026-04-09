@@ -27,7 +27,8 @@ Orchestrates a multi-phase pipeline that takes a Jira ticket — or a raw idea �
 
 Parse the user's message for:
 - **Jira ticket key** (e.g. `PROJ-123`) or URL → fetch ticket with Atlassian MCP `searchJiraIssuesUsingJql`, fields: `["summary", "description", "status", "assignee", "sprint", "story_points", "components", "labels", "issuetype", "priority", "project"]`. Resolve contributor context using `generic-jira-contributor-context`, then proceed directly to Step 2 — no confirmation needed.
-- **No ticket** → ask: "What do you want to work on? Give me a short description." Then ask: **"Should I also create a Jira ticket for this once the work item is fully defined? (yes / no)"** Store the answer for Step 7. Then show a one-line summary of the intent and ask: **"Ready to start the preparation pipeline? (yes / go back)"** Do not proceed until confirmed.
+- **No ticket** → ask: "What do you want to work on? Give me a short description." Then ask: **"Should I also create a Jira ticket for this once the work item is fully defined? (yes / no)"** Store the answer for Step 7. Show a one-line summary of the intent and proceed.
+  **Autonomous mode:** skip the Jira creation question — auto-create. Infer the project from the user's most recently active Jira project (via contributor context). Show a one-line summary and proceed.
 
 Resolve contributor context using `generic-jira-contributor-context` in both paths. Store: `accountId`, `displayName`, `team`, `sprint`.
 
@@ -39,7 +40,9 @@ Invoke the `generic-work-item-feature-linker` agent. Pass:
 
 Present the feature list (3–7 items, top-level only). Let the user trim or add items.
 
-After the user confirms the list, ask: **"Feature list confirmed. Proceed to field audit? (yes / go back)"**
+After the user adjusts the list (if needed), proceed directly to Step 3.
+
+**Autonomous mode:** skip user input — use the feature list returned by the agent as-is and proceed.
 
 ### 3. Field audit (sub-agent)
 
@@ -48,10 +51,10 @@ Invoke the `generic-work-item-field-auditor` agent. Pass:
 - Contributor context (team, sprint, accountId)
 - Confirmed feature list from Step 2
 
-Present the audit checklist. Wait for the user to approve, adjust, or skip individual field suggestions.
-
-After approval, confirm: **"Field audit complete. Proceed to title improvement? (yes / go back)"**
+Present the audit checklist. Wait for the user to approve, adjust, or skip individual field suggestions. Then proceed to Step 4.
 If intent-only mode: skip this phase and proceed directly, noting it was skipped.
+
+**Autonomous mode:** apply all suggested field values without presenting the checklist. Proceed to Step 4.
 
 ### 4. Title improvement (sub-agent)
 
@@ -59,9 +62,9 @@ Invoke the `generic-work-item-title-improver` agent. Pass:
 - Current title (or the user's intent string)
 - Platform context if known
 
-Present the original and proposed title side by side. Wait for the user to accept, edit, or request another suggestion.
+Present the original and proposed title side by side. Wait for the user to accept, edit, or request another suggestion. Then proceed to Step 5.
 
-After approval, confirm: **"Title locked in. Proceed to intention definition? (yes / go back)"**
+**Autonomous mode:** use the first proposed title without presenting it. Proceed to Step 5.
 
 ### 5. Intention definition (sub-agent)
 
@@ -71,9 +74,9 @@ Invoke the `generic-work-item-intention-writer` agent. Pass:
 - Confirmed feature list from Step 2
 - Platform (from title or user)
 
-Present the full intention draft. The user may revise any section. Wait for explicit approval of the complete intention.
+Present the full intention draft. The user may revise any section. Wait for explicit approval of the complete intention. Then proceed to Step 6.
 
-After approval, ask: **"Intention approved. Proceed to final review? (yes / go back)"**
+**Autonomous mode:** accept the intention draft as-is. Proceed to Step 6 immediately.
 
 ### 6. Final review
 
@@ -92,6 +95,8 @@ Ask: **"Does this look right? Approve to save, or go back to any step (type the 
 
 Do not proceed to Step 7 until the user explicitly approves.
 
+**Autonomous mode:** skip the final review entirely — proceed directly to Step 7.
+
 ### 7. Persist
 
 **Ticket exists:**
@@ -102,6 +107,7 @@ Do not proceed to Step 7 until the user explicitly approves.
 **No ticket, user said yes to Jira creation (Step 1):**
 - Create a new Jira ticket via `createJiraIssue` using the approved title, fields, and the full intention as the description
 - Ask the user which project to create it in if not already known
+- **Autonomous mode:** create automatically in the project inferred from contributor context — no project question
 
 **No ticket, user declined Jira creation:**
 - Skip Jira entirely
@@ -113,8 +119,9 @@ Confirm with the ticket URL (new or updated) and local spec file path.
 
 ## Constraints
 
-- Never proceed from one step to the next without explicit user confirmation — every step ends with a gating question
-- Never update or create a Jira ticket without explicit user approval at Step 6
+- In auto or autonomous mode, do not end your response turn between steps — execute all steps in sequence without stopping; only pause at explicit user gates in pause mode
+- Never proceed from one step to the next without explicit user confirmation — every step ends with a gating question — **except in autonomous mode, which bypasses all confirmation gates**
+- Never update or create a Jira ticket without explicit user approval at Step 6 — **except in autonomous mode, which skips the final review and writes immediately**
 - The description written to Jira is always the unified output from the intention writer — never append, never patch; the intention writer owns the merge
 - Always ask about Jira ticket creation at Step 1 when no ticket is provided — never assume
 - Each sub-agent receives all needed context in its invocation prompt — do not rely on shared state
