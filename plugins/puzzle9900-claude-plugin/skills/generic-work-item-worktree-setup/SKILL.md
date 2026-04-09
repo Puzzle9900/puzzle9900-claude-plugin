@@ -48,36 +48,13 @@ Build the name from three `/`-separated segments: `{type}/{key}/{slug}`
 
 Example: `story/MOB-1234/add-dark-mode-to-settings-screen`
 
-### 3. Open the new Claude session
+### 3. Spawn the worktree session
 
-Call `open-claude-tab.sh` — it lives in the same folder as this SKILL.md:
+Invoke `generic-worktree-spawner` with:
+- `worktree-name` = `{name}` (from Step 2)
+- `prompt` = `/generic-work-item-full-implementation-workflow {work_item}`
 
-```bash
-bash <path-to-this-skill>/open-claude-tab.sh \
-  -t "{name}" \
-  -r "{REPO_ROOT}" \
-  -w "{name}" \
-  -m "/generic-work-item-full-implementation-workflow {work_item}" \
-  -p
-```
-
-Concrete example — skill loaded from `/path/to/puzzle9900-claude-plugin/skills/generic-work-item-worktree-setup/`:
-
-```bash
-bash /path/to/puzzle9900-claude-plugin/skills/generic-work-item-worktree-setup/open-claude-tab.sh \
-  -t "story/MOB-1234/add-dark-mode" \
-  -r "/Users/you/projects/my-app" \
-  -w "story/MOB-1234/add-dark-mode" \
-  -m "/generic-work-item-full-implementation-workflow MOB-1234" \
-  -p
-```
-
-Where:
-- `-t` — tab title and Claude `--name` session label (`{name}` from Step 2)
-- `-r` — absolute repo root (`{REPO_ROOT}` from Step 3)
-- `-w` — worktree name (`{name}` from Step 2); the script checks if it already exists and re-enters or creates accordingly
-- `-m` — initial message passed to claude as a positional argument (not `-p`)
-- `-p` — adds `--dangerously-skip-permissions` so the session runs without tool approval prompts
+`generic-worktree-spawner` resolves the repo root itself and opens the new Claude session.
 
 ### 4. Confirm and stop
 
@@ -89,8 +66,8 @@ This skill is done. All further work happens in the new session.
 ## Constraints
 
 - This skill only computes the name and opens the session — nothing else
-- Never call `git worktree add` or `EnterWorktree` — `open-claude-tab.sh` handles worktree creation via `claude --worktree`
-- Never write `.workflow`, `.command` files, or any shell code — all shell logic lives in `open-claude-tab.sh`
+- This skill only computes the worktree name and invokes `generic-worktree-spawner` — nothing else
+- Never call `git worktree add`, `EnterWorktree`, or any shell commands directly
+- Never write `.workflow`, `.command` files, or shell code — all of that belongs in `generic-worktree-spawner`
 - Never ask about run mode — that happens inside the new session
-- Never call `EnterWorktree` or change the current session's CWD
-- This skill only computes values and calls `open-claude-tab.sh` with the correct flags — nothing else
+- Never change the current session's CWD
