@@ -9,7 +9,7 @@ description: Use when you want to take a work item all the way from raw idea or 
 
 Chains five skills — `generic-work-item-preparation`, `generic-work-item-pre-implementation-tech-scope`, `generic-work-item-implementation-start`, and `generic-work-item-ship` — taking a work item from raw idea or incomplete ticket all the way to a reviewed draft PR.
 
-This skill always runs inside a worktree session. The worktree is created and this session is launched by `generic-work-item-worktree-setup` running in the main repo. On startup, this skill reads `.claude/.workflow` to load the ticket, mode, and resume state — that file is always present when this skill runs.
+This skill always runs inside a worktree session. The worktree is created and this session is launched by `generic-work-item-worktree-setup` running in the main repo. On startup, this skill reads `.workflow` to load the ticket, mode, and resume state — that file is always present when this skill runs.
 
 This skill owns sequencing, state management, and transition gates only. Each phase is fully delegated to its individual skill.
 
@@ -28,7 +28,7 @@ It can also be invoked manually inside a worktree session:
 
 ## State File
 
-`.claude/.workflow` is created by this skill on first run inside the worktree session. All reads and writes go through `generic-work-item-workflow-state`.
+`.workflow` is created by this skill on first run inside the worktree session. All reads and writes go through `generic-work-item-workflow-state`.
 
 `work_dir` = `pwd` at session start — this session IS the worktree.
 
@@ -83,11 +83,16 @@ Skip if `completed_phases` contains `1`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, current_phase: 1`.
 
+**autonomous/auto:** output exactly this line before invoking the sub-skill:
+> "**[Phase 1/4]** Running preparation — will proceed to Phase 2 automatically."
+
 Invoke `generic-work-item-preparation` with `ticket` and `work_dir`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 1], current_phase: 2` immediately after the skill returns.
 
-**autonomous/auto:** show "**Phase 1 complete** — Jira updated. → Starting Phase 2..." and proceed without stopping.
+**autonomous/auto:** output exactly this line, then immediately invoke Phase 2 in the same response turn — do not stop:
+> "**Phase 1 complete.** → Phase 2 starting now."
+
 **pause:** ask "Ready to start the technical scope? (yes / stop here)". If stopped: "To resume: run `/generic-work-item-full-implementation-workflow {TICKET}` in this session."
 
 ### 2. Phase 2 — Technical Scope (conditional)
@@ -96,11 +101,16 @@ Skip if `completed_phases` contains `2`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, current_phase: 2`.
 
+**autonomous/auto:** output exactly this line before invoking the sub-skill:
+> "**[Phase 2/4]** Running technical scope — will proceed to Phase 3 automatically."
+
 Invoke `generic-work-item-pre-implementation-tech-scope` with `ticket` and `work_dir`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 2], current_phase: 3` immediately after the skill returns.
 
-**autonomous/auto:** show "**Phase 2 complete** — `technical-scope.md` saved. → Starting Phase 3..." and proceed.
+**autonomous/auto:** output exactly this line, then immediately invoke Phase 3 in the same response turn — do not stop:
+> "**Phase 2 complete.** → Phase 3 starting now."
+
 **pause:** ask "Ready to start implementation? (yes / stop here)".
 
 ### 3. Phase 3 — Implementation (conditional)
@@ -109,11 +119,16 @@ Skip if `completed_phases` contains `3`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, current_phase: 3`.
 
+**autonomous/auto:** output exactly this line before invoking the sub-skill:
+> "**[Phase 3/4]** Running implementation — will proceed to Phase 4 automatically."
+
 Invoke `generic-work-item-implementation-start` with `ticket` and `work_dir`.
 
 Invoke `generic-work-item-workflow-state` with `operation: update, completed_phases: [..., 3], current_phase: 4` immediately after the skill returns.
 
-**autonomous/auto:** show "**Phase 3 complete** — Implementation reviewed. → Starting Phase 4..." and proceed.
+**autonomous/auto:** output exactly this line, then immediately invoke Phase 4 in the same response turn — do not stop:
+> "**Phase 3 complete.** → Phase 4 starting now."
+
 **pause:** ask "Ready to commit and open a draft PR? (yes / stop here)".
 
 ### 4. Phase 4 — Ship
@@ -143,7 +158,7 @@ In autonomous mode, after each phase completes, invoke the next phase in the sam
 - Do not end your response turn between phase transitions in autonomous mode — write `.workflow`, show one-line status, invoke next phase without stopping
 - This skill only orchestrates — it never writes code, reads the codebase, modifies Jira, or creates spec files directly
 - Each phase is fully delegated to its skill; do not replicate their internal logic here
-- All state file operations go through `generic-work-item-workflow-state` — never raw Read or Write tool calls on `.claude/.workflow`
+- All state file operations go through `generic-work-item-workflow-state` — never raw Read or Write tool calls on `.workflow`
 - Invoke `generic-work-item-workflow-state` twice per phase: once before (`current_phase`), once after (`completed_phases`) — never defer these to a subsequent turn
 - If a skill fails or the user stops mid-phase, do not advance `completed_phases` — the phase must be retried in full
 - State file tracks phases only — not sub-steps or area-level tracking

@@ -18,6 +18,7 @@ Opens a new iTerm tab with a Claude session in the specified worktree. If the wo
 | `worktree-name` | Yes | The worktree name (e.g. `story/MOB-1234/add-dark-mode`) |
 | `prompt` | No | Initial message to send to Claude when the session opens. Omit for an empty interactive session. |
 | `repo` | No | Absolute path to the git repo root. If not provided, resolved via `git rev-parse --show-toplevel` from the current directory. |
+| `skip-permissions` | No | If `true`, pass `--dangerously-skip-permissions` to the new session. Defaults to `false`. |
 
 ## Steps
 
@@ -33,7 +34,9 @@ Store as `{REPO_ROOT}`.
 
 `open-claude-tab.sh` lives in the same folder as this SKILL.md. Call it as a sibling:
 
-**With prompt:**
+Add `-p` only if `skip-permissions` is `true`.
+
+**With prompt, with skip-permissions:**
 ```bash
 bash <path-to-this-skill>/open-claude-tab.sh \
   -t "{worktree-name}" \
@@ -43,14 +46,16 @@ bash <path-to-this-skill>/open-claude-tab.sh \
   -p
 ```
 
-**Without prompt** (omit `-m`):
+**With prompt, without skip-permissions:**
 ```bash
 bash <path-to-this-skill>/open-claude-tab.sh \
   -t "{worktree-name}" \
   -r "{REPO_ROOT}" \
   -w "{worktree-name}" \
-  -p
+  -m "{prompt}"
 ```
+
+**Without prompt** — apply the same `-p` / no `-p` rule, omitting `-m` entirely.
 
 ### 3. Confirm and stop
 
@@ -64,4 +69,4 @@ This skill is done. All further work happens in the new session.
 - Never write shell code inline — all shell logic lives in `open-claude-tab.sh`
 - Never call `git worktree add` or `EnterWorktree` — the script handles worktree creation
 - Never change the current session's CWD
-- `-p` (`--dangerously-skip-permissions`) is always passed — required for unattended skill execution in the new session
+- `-p` (`--dangerously-skip-permissions`) is only passed when `skip-permissions: true` is explicitly set by the caller — never assumed
