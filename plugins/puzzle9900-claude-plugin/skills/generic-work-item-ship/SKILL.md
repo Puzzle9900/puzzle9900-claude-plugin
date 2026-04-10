@@ -1,13 +1,13 @@
 ---
 name: generic-work-item-ship
-description: Use when implementation is complete and reviewed — commits all changes, pushes to origin, creates a draft PR, and runs the CodeRabbit + Dangerbot approval loop until both pass. Must be run from inside the feature worktree. Requires gh CLI.
+description: Use when implementation is complete and reviewed — formats code, runs tests, installs the app, runs local reviews, commits, pushes, creates a draft PR, then tracks CI and bot comments until everything is green. Must be run from inside the feature worktree. Requires gh CLI.
 ---
 
 # generic-work-item-ship
 
 ## Overview
 
-Takes a completed, reviewed implementation inside a worktree and ships it: commits specific files, pushes the branch, runs a CodeRabbit pre-review, creates a draft PR with a structured body, then iterates through CodeRabbit and Dangerbot feedback until both pass. The final output is a draft PR URL ready for human review.
+Takes a completed, reviewed implementation inside a worktree through a full pre-push quality gate, ships it as a draft PR, then monitors CI and bot feedback until the PR is green. The final output is a green draft PR with a Slack notification sent to the user's personal channel.
 
 This skill is Phase 5 — the final step in the work item pipeline.
 
@@ -16,19 +16,15 @@ This skill is Phase 5 — the final step in the work item pipeline.
 - "Ship the implementation for PROJ-123"
 - "Create the PR for this branch"
 - After `generic-work-item-implementation-start` has completed all areas and reviews
-- Running as part of `generic-work-item-full-implementation-workflow`
 
 **Preconditions:**
-- Must be inside the feature branch worktree (created by `generic-work-item-worktree-setup`)
+- Must be inside the feature branch worktree
 - Must have an Implementation Report listing the files that were created or modified
 - `gh` CLI must be installed and authenticated
 
 ## Mode
 
-Resolve `mode` before the first step, in this order:
-1. `mode` parameter passed by the caller (e.g. from `generic-work-item-full-implementation-workflow`)
-2. `mode` field in `.workflow` — read with the Read tool if the file exists at the worktree root
-3. Default: `auto`
+Resolve `mode` from the caller, `.workflow` state file, or default to `auto`.
 
 **autonomous** — skip all confirmation gates; proceed end-to-end without stopping
 **auto** — stop only at genuine decision gates
@@ -38,84 +34,112 @@ Resolve `mode` before the first step, in this order:
 
 ### 0. Load context
 
-Parse the argument for:
-- **Jira ticket key** — used in commit message, PR title, and PR body
-- **Implementation Reports** — list of files created/modified per area; passed from the previous phase or available in the session context
-
-If no ticket key is available, ask: "What's the ticket key for this implementation? (e.g. PROJ-123)"
-
-**Verify worktree:**
-```bash
-git rev-parse --git-dir
-```
-If the output is not `.git` (i.e. we are in a regular repo root, not a worktree), warn:
-> "I'm not inside a worktree. Make sure you've run `generic-work-item-worktree-setup` and the session CWD is inside `.claude/worktrees/{name}/`."
-Do not proceed until this is confirmed.
-
-**Detect repo name:**
-```bash
-gh repo view --json nameWithOwner -q .nameWithOwner
-```
-Store as `REPO_NAME` for the approval loop API calls.
-
-**Detect branch:**
-```bash
-git branch --show-current
-```
-Store as `BRANCH_NAME`.
-
-### 1. Commit
-
-Stage only the specific files listed in the Implementation Reports:
-```bash
-git add {file1} {file2} ...
-```
-
-Never use `git add -A` or `git add .`.
-
-Commit:
-```bash
-git commit -m "[{TICKET}] {one-line summary}"
-```
-
-The summary is derived from the ticket title — concise, action-verb, ≤72 chars after the prefix.
-
-### 2. Push
+Parse: Jira ticket key, Implementation Reports (files created/modified per area).
 
 ```bash
-git push -u origin {BRANCH_NAME}
+git rev-parse --git-dir          # verify inside worktree
+gh repo view --json nameWithOwner -q .nameWithOwner  # → REPO_NAME
+git branch --show-current        # → BRANCH_NAME
+git rev-parse --show-toplevel    # → REPO_ROOT (for gradlew) and WORK_TREE path
 ```
 
-### 3. CodeRabbit pre-review
+---
+
+### 1. Format code
+
+```bash
+cd {REPO_ROOT} && ./gradlew ktlintFormat
+```
+
+Stage all files modified by the formatter:
+```bash
+git diff --name-only
+```
+
+If `ktlintFormat` fails: fix the reported issues, re-run until clean.
+
+---
+
+### 2. Run unit tests
+
+```bash
+cd {REPO_ROOT} && ./gradlew testDebugUnitTest
+```
+
+Unit tests only — do not run integration or automation tests.
+
+If any tests fail:
+- Read the failure output
+- Fix the failing tests or the code causing them
+- Re-run until all tests pass
+
+**Do not proceed to Step 3 until unit tests are passing.**
+
+---
+
+### 3. Build and install the app
+
+```bash
+cd {REPO_ROOT} && ./gradlew installDebug
+```
+
+If the build fails: read the error, fix it, rebuild until the install succeeds.
+
+**Do not proceed to Step 4 until `installDebug` completes without error.**
+
+---
+
+### 4. Local reviews
+
+Run both reviewers on the changed files. Fix Critical and Major findings only — ignore style and Minor nits.
+
+**4a. Claude Code reviewer**
+
+Invoke `generic-work-item-code-reviewer` with `scope: full` on all implementation files.
+
+For each Critical or Major finding: fix the code, re-run affected tests, re-install if the fix touches runtime behavior.
+
+**4b. CodeRabbit local review**
 
 ```bash
 coderabbit review --plain
 ```
 
-If `coderabbit` CLI is not installed: skip this step. Note the skip in the PR body (see Step 4).
+If `coderabbit` CLI is not installed: skip and note it in the PR body.
 
-**Fix:** logic errors, correctness issues, contract violations, missing null/error handling — anything a reviewer would block on.
+For each significant finding (logic errors, correctness, contract violations): fix code, re-run tests, re-run review until clean or only style findings remain. Style, formatting, naming: skip entirely.
 
-**Skip:** style preferences, formatting, naming conventions, minor nits — not worth a commit before the PR is open.
+---
 
-If significant issues are found: fix the code, commit (`[{TICKET}] fix: {description}`), push, re-run. Repeat until clean or only style findings remain.
+### 5. Commit
 
-### 4. Create draft PR
-
-Check the diff size first:
+Stage only the specific files from the Implementation Reports plus any files touched by Steps 1–4:
 ```bash
-git diff origin/{base-branch}...{BRANCH_NAME} --stat | tail -1
+git add {file1} {file2} ...
 ```
-If the total exceeds ~1000 lines, warn the user:
-> "This PR is {N} lines changed. Large PRs often trigger Dangerbot warnings and are harder to review. Split by area, or proceed as-is?"
-Wait for the user's decision before creating.
 
-**Autonomous mode:** skip the warning — note the line count in the PR body (`<!-- PR size: {N} lines -->`) and proceed.
+Never `git add -A` or `git add .`.
 
-Create the draft PR:
+```bash
+git commit -m "[{TICKET}] {one-line summary}"
+```
+
+---
+
+### 6. Push
+
+```bash
+git push -u origin {BRANCH_NAME}
+```
+
+---
+
+### 7. Create draft PR
+
 ```bash
 gh pr create --draft \
   --title "[{TICKET}] {brief description}" \
+  --label "ai-managed-pr" \
   --body "$(cat <<'EOF'
 ## Addresses
 
@@ -123,7 +147,7 @@ gh pr create --draft \
 
 ## Summary
 
-{bullet points derived from the Implementation Reports — one per area, what changed}
+{bullet points derived from the Implementation Reports — one per area}
 
 ## Test plan
 
@@ -134,106 +158,82 @@ EOF
 )"
 ```
 
-If CodeRabbit pre-review was skipped, add to the body:
-```
-<!-- CodeRabbit pre-review skipped: coderabbit CLI not installed -->
-```
+Store the PR number. In autonomous mode: if diff >1000 lines, note it in the PR body and proceed. In pause mode: warn and ask.
 
-Store the PR number from the output.
+---
 
-### 5. Approval loop
+### 8. CI and bot tracking loop
 
-Iterate until **both** conditions are met:
-- CodeRabbit state is `APPROVED`
-- No unresolved Dangerbot comments
+Iterate until **all** of the following are true:
+- All CI checks are passing
+- No blocking CodeRabbit issues
+- No unresolved Dangerbot issues
+
+**Never trigger `@coderabbitai review` manually** — let CodeRabbit and Dangerbot run on the PR naturally. Only poll for their output.
 
 **Each iteration:**
 
-**1.** Request a review:
+**8a. Check CI:**
 ```bash
-gh pr comment {PR_NUMBER} --body "@coderabbitai review"
+gh pr checks {PR_NUMBER}
 ```
 
-**2.** Wait 120 seconds.
+For each failing check: read the failure log (`gh run view {run_id} --log-failed`), fix the root cause, commit (`[{TICKET}] fix: {description}`), push.
 
-**3.** Check CodeRabbit:
+**8b. Check CodeRabbit:**
 ```bash
 gh api repos/{REPO_NAME}/pulls/{PR_NUMBER}/reviews
+gh api repos/{REPO_NAME}/pulls/{PR_NUMBER}/comments
 ```
-Parse `state` from the CodeRabbit reviewer entry: `APPROVED`, `CHANGES_REQUESTED`, or pending.
 
-**4.** Check Dangerbot:
+Evaluate each finding before acting:
+- Fix: genuine correctness issues, contract violations, missing error handling
+- Skip: style preferences, naming opinions, subjective suggestions
+
+**8c. Check Dangerbot:**
 ```bash
 gh api repos/{REPO_NAME}/issues/{PR_NUMBER}/comments
 ```
-Scan for unresolved comments from the Dangerbot user. Common issues and fixes:
 
-| Dangerbot issue | Fix |
+| Issue | Fix |
 |---|---|
-| Missing `## Addresses` section | `gh pr edit {PR_NUMBER} --body "{corrected body}"` |
-| PR too large (>1000 lines) | Surface to user — ask whether to split or proceed |
-| Missing required labels | `gh pr edit {PR_NUMBER} --add-label "{label}"` — ask user which label if unclear |
+| Missing `## Addresses` | `gh pr edit {PR_NUMBER} --body "{corrected body}"` |
+| PR too large | Note in body; ask user in pause mode, proceed in autonomous |
+| Missing labels | `gh pr edit {PR_NUMBER} --add-label "{label}"` |
 
-Commit and push any changes made to fix Dangerbot issues.
+After any code change: push → return to 8a.
 
-**5.** Fix CodeRabbit `CHANGES_REQUESTED`:
-```bash
-gh api repos/{REPO_NAME}/pulls/{PR_NUMBER}/comments
-```
-Read each inline comment. For each issue:
-- Fix the code
-- Commit: `[{TICKET}] fix: {short description of fix}`
-- Push
+**Loop exit:** all CI green + no blocking issues → proceed to Step 9.
 
-After any code changes, return to step 1.
+---
 
-**Loop exit:** CodeRabbit `APPROVED` + no Dangerbot unresolved comments → proceed to Step 6.
+### 9. Slack notification
 
-Do not stop after one loop. Keep iterating until the exit condition is met or the user explicitly says to stop.
+Invoke `generic-work-item-slack-notify` with:
+- `ticket` — the Jira ticket key
+- `summary` — the ticket title
+- `pr_url` — the PR URL from Step 7
+- `work_tree` — worktree path from `git rev-parse --show-toplevel` (resolved in Step 0)
+- `status` — `CI: green | CodeRabbit: reviewed | Dangerbot: resolved`
 
-### 6. Slack notification (conditional)
+The skill resolves the current Slack user automatically and sends to their personal channel. If it fails for any reason, log and continue — never block on this step.
 
-Read the Slack channel from the first available source:
-1. `slack_notify_channel` field in the `.workflow` state file
-2. `SLACK_NOTIFY_CHANNEL` value in the project's `CLAUDE.md`
+---
 
-If neither is set, skip this step silently — no error, no prompt.
+### 10. Done
 
-If a channel is found, send a message using the `slack_send_message` MCP tool:
-
-```
-channel: {slack_notify_channel}
-message:
-  Draft PR ready for review 👀
-  *[{TICKET}] {ticket summary}*
-  {PR_URL}
-```
-
-- `{TICKET}` — the Jira ticket key (e.g. `MOB-1234`)
-- `{ticket summary}` — the ticket title fetched at Step 0
-- `{PR_URL}` — the full GitHub PR URL
-
-### 7. Done
-
-Output:
 > "Draft PR ready for human review: {PR_URL}"
-
-Present a brief summary:
-- Branch pushed: `{BRANCH_NAME}`
-- PR: `{PR_URL}`
-- Review cycles completed: `{N}`
-- Slack notified: `{channel}` (or "skipped — no channel configured")
-- Any remaining non-blocking informational findings
 
 ## Constraints
 
-- In auto or autonomous mode, do not end your response turn between steps — execute commit → push → pre-review → PR creation → approval loop in sequence without stopping; only pause at the PR size gate in pause mode
-- Never use `git add -A` or `git add .` — always stage specific files listed in the Implementation Reports
-- Never squash-merge — creating the draft PR is the final action; merging is a human decision
-- Never stop the approval loop after one round — keep iterating until both bots pass or the user explicitly asks to stop
-- `## Addresses`, `## Summary`, and `## Test plan` are required sections in the PR body — never omit them
-- CodeRabbit style/formatting findings are not fix targets — skip them in both the pre-review and the approval loop
-- If `gh` CLI is unavailable, stop immediately: "gh CLI is required for this skill. Install it and re-run."
-- If `coderabbit` CLI is unavailable, skip Step 3 and note the gap in the PR body — do not block the workflow
-- Always verify you are inside a worktree before committing — never commit from the main repo root
-- Slack notification is best-effort — if the MCP tool fails or no channel is configured, log the skip and continue; never block the workflow on a notification failure
+- Never `git add -A` or `git add .` — always stage specific files
+- Never squash-merge — draft PR creation is the final action; merging is a human decision
+- **Never trigger `@coderabbitai review` on GitHub** — let bots run naturally; only read their output
+- Do not proceed past Step 2 if tests are failing
+- Do not proceed past Step 3 if the app crashes on open
+- Evaluate CodeRabbit and Dangerbot findings before fixing — skip style, naming, subjective suggestions
+- CI failures must be fixed before the loop exits
+- Slack notification is best-effort — never block on it
+- In autonomous mode: never stop between steps — execute the full sequence in one continuous turn
+- If `gh` CLI unavailable: stop immediately
+- If `coderabbit` CLI unavailable: skip Step 4b, note in PR body

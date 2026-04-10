@@ -6,7 +6,7 @@
 
 ## Overview
 
-Takes a completed, reviewed implementation inside a worktree and ships it: commits all changes, pushes the branch, creates a draft PR, and runs the CodeRabbit + Dangerbot approval loop until both pass.
+Takes a completed, reviewed implementation inside a worktree through a pre-push quality gate (ktlintFormat, tests, install+verify, local reviews), ships it as a draft PR, then monitors CI and bot feedback until everything is green. Final output: green draft PR + Slack notification to the user's personal channel.
 
 This skill is the fifth and final step in the work item pipeline:
 
@@ -33,42 +33,50 @@ No tests are produced. No merging happens — this skill creates the draft PR on
 User invokes skill with ticket key and repo context
         │
         ▼
-Step 1: Commit
-  git add {specific files from Implementation Reports — never git add -A}
+Step 1: Format code
+  ./gradlew ktlintFormat → stage formatter changes
+        │
+        ▼
+Step 2: Run tests
+  ./gradlew test
+  FAILING → fix → re-run (do not proceed until green)
+        │
+        ▼
+Step 3: Build and install
+  ./gradlew installDebug (build must succeed)
+        │
+        ▼
+Step 4: Local reviews (critical + major only)
+  4a. generic-work-item-code-reviewer (scope: full)
+  4b. coderabbit review --plain (local — fix logic/correctness; skip style)
+        │
+        ▼
+Step 5: Commit
+  git add {specific files — never git add -A}
   git commit -m "[{TICKET}] {summary}"
         │
         ▼
-Step 2: Push
+Step 6: Push
   git push -u origin {branch-name}
         │
         ▼
-Step 3: CodeRabbit pre-review
-  coderabbit review --plain
-  SIGNIFICANT ISSUES (logic, correctness) → fix → commit → push → re-run
-  STYLE ONLY or CLEAN → continue
+Step 7: Create draft PR
+  gh pr create --draft --label "ai-managed-pr" (## Addresses · ## Summary · ## Test plan)
         │
         ▼
-Step 4: Create draft PR
-  gh pr create --draft \
-    --title "[{TICKET}] {brief description}" \
-    --body "## Addresses\n{TICKET}\n\n## Summary\n{bullets}\n\n## Test plan\n{AC checklist}"
-        │
-        ▼
-Step 5: Approval loop
+Step 8: CI + bot tracking loop (NO @coderabbitai trigger — bots run naturally)
   loop:
-    1. gh pr comment {pr} --body "@coderabbitai review"
-    2. wait ~120s
-    3. check:
-       - gh api repos/{REPO}/pulls/{pr}/reviews          (CodeRabbit)
-       - gh api repos/{REPO}/issues/{pr}/comments        (Dangerbot)
-    4. fix Dangerbot issues → commit + push
-    5. fix CodeRabbit CHANGES_REQUESTED → commit + push
-    if CodeRabbit APPROVED and no Dangerbot issues → done
-    else → go to 1
+    - gh pr checks → fix any failing CI check → commit + push
+    - gh api pulls/{pr}/reviews + comments → evaluate CodeRabbit findings
+      → fix genuine issues; skip style/naming/subjective
+    - gh api issues/{pr}/comments → fix Dangerbot issues
+    until: CI green + no blocking issues
         │
         ▼
-Step 6: Done
-  "Draft PR ready for human review: {PR URL}"
+Step 9: Slack notification → user's personal channel (ticket, summary, worktree, PR URL, status)
+        │
+        ▼
+Step 10: Done — "Draft PR ready for human review: {PR URL}"
 ```
 
 ---
