@@ -65,6 +65,7 @@ For each plugin entry, resolve `<repo>/<source>` and verify:
 - The directory exists
 - It contains `.claude-plugin/plugin.json`
 - `plugin.json` has a non-empty `name` and valid `version`
+- `plugin.json` does **not** contain an `"agents"` field — Claude Code does not support this field and will silently fail to load the plugin if it is present. Agents are auto-discovered from the `agents/` directory. If found, remove the field before proceeding.
 
 If anything is missing or invalid, stop and tell the user what to fix before running setup.
 
