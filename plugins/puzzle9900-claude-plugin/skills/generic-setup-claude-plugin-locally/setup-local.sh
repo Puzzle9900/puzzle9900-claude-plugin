@@ -58,9 +58,17 @@ settings['extraKnownMarketplaces']['$MARKETPLACE_NAME'] = {
     }
 }
 
+valid_keys = set()
 for plugin in marketplace.get('plugins', []):
     key = plugin['name'] + '@$MARKETPLACE_NAME'
     settings['enabledPlugins'][key] = True
+    valid_keys.add(key)
+
+# Remove stale entries for this marketplace no longer in marketplace.json
+stale = [k for k in list(settings['enabledPlugins']) if k.endswith('@$MARKETPLACE_NAME') and k not in valid_keys]
+for k in stale:
+    del settings['enabledPlugins'][k]
+    print(f'  [CLEAN] Removed stale enabledPlugins entry: {k}')
 
 with open('$SETTINGS_FILE', 'w') as f:
     json.dump(settings, f, indent=2)
@@ -97,6 +105,30 @@ echo "[OK] Updated $KM_FILE"
 IP_FILE="$HOME/.claude/plugins/installed_plugins.json"
 [ ! -f "$IP_FILE" ] && echo '{"version": 2, "plugins": {}}' > "$IP_FILE"
 
+# ── Purge stale installed_plugins entries for this marketplace ────────
+python3 -c "
+import json
+
+with open('$IP_FILE') as f:
+    ip = json.load(f)
+
+ip.setdefault('plugins', {})
+
+with open('$MARKETPLACE_FILE') as f:
+    marketplace = json.load(f)
+
+valid_keys = {p['name'] + '@$MARKETPLACE_NAME' for p in marketplace.get('plugins', [])}
+stale = [k for k in list(ip['plugins']) if k.endswith('@$MARKETPLACE_NAME') and k not in valid_keys]
+for k in stale:
+    del ip['plugins'][k]
+    print(f'  [CLEAN] Removed stale installed_plugins entry: {k}')
+
+if stale:
+    with open('$IP_FILE', 'w') as f:
+        json.dump(ip, f, indent=2)
+        f.write('\n')
+"
+
 LOCAL_PLUGINS=$(python3 -c "
 import json
 marketplace = json.load(open('$MARKETPLACE_FILE'))
@@ -128,6 +160,30 @@ print(v)
   echo ""
   echo "── $PLUGIN_NAME ($VERSION) ──"
   echo "   Dir: $PLUGIN_DIR"
+
+  # Validate plugin.json schema before registering
+  python3 -c "
+import json, sys
+try:
+    with open('$PLUGIN_JSON') as f:
+        pj = json.load(f)
+except Exception as e:
+    print(f'  [ERROR] Cannot read plugin.json: {e}')
+    sys.exit(1)
+errors = []
+if not isinstance(pj.get('name'), str) or not pj.get('name'):
+    errors.append('name: must be a non-empty string')
+if not isinstance(pj.get('version'), str) or not pj.get('version'):
+    errors.append('version: must be a non-empty string')
+if 'repository' in pj and not isinstance(pj['repository'], str):
+    errors.append(f'repository: must be a string, got {type(pj[\"repository\"]).__name__} — Claude Code rejects objects here')
+if 'agents' in pj:
+    errors.append('agents: field is not supported — remove it (agents are auto-discovered from agents/ directory)')
+if errors:
+    for e in errors: print(f'  [ERROR] plugin.json: {e}')
+    sys.exit(1)
+" || { echo "   [SKIP] $PLUGIN_NAME — fix the errors above and re-run"; continue; }
+  echo "   [OK] plugin.json is valid"
 
   # Update installed_plugins.json
   python3 -c "

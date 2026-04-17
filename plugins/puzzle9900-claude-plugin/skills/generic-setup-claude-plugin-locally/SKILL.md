@@ -66,6 +66,7 @@ For each plugin entry, resolve `<repo>/<source>` and verify:
 - It contains `.claude-plugin/plugin.json`
 - `plugin.json` has a non-empty `name` and valid `version`
 - `plugin.json` does **not** contain an `"agents"` field — Claude Code does not support this field and will silently fail to load the plugin if it is present. Agents are auto-discovered from the `agents/` directory. If found, remove the field before proceeding.
+- `plugin.json` `repository` field, **if present**, must be a plain **string** (e.g. `"https://github.com/org/repo"`). An object value (`{"type": "git", "url": "..."}`) passes JSON parsing but fails Claude Code's schema validator, causing the plugin to silently fail to load on every restart with the error `repository: Invalid input: expected string, received object`. Convert it to a URL string.
 
 If anything is missing or invalid, stop and tell the user what to fix before running setup.
 
@@ -83,11 +84,13 @@ bash /path/to/puzzle9900-claude-plugin/skills/generic-setup-claude-plugin-locall
 
 The script automates all registration steps for **every plugin** listed in `marketplace.json`:
 1. Reads marketplace name from `.claude-plugin/marketplace.json`
-2. Updates `~/.claude/settings.json` — adds one `extraKnownMarketplaces` entry (per marketplace) and one `enabledPlugins` entry per plugin
+2. Updates `~/.claude/settings.json` — adds one `extraKnownMarketplaces` entry (per marketplace) and one `enabledPlugins` entry per plugin; also **removes stale `*@<marketplace>` entries** (plugins no longer present in `marketplace.json`) — output lines starting with `[CLEAN]`
 3. Updates `~/.claude/plugins/known_marketplaces.json` — registers the marketplace source pointing to the repo root
-4. For each plugin: updates `~/.claude/plugins/installed_plugins.json` and creates a cache symlink at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` pointing to the plugin's source directory
+4. Removes stale `*@<marketplace>` entries from `~/.claude/plugins/installed_plugins.json` — same `[CLEAN]` output
+5. For each plugin: **validates `plugin.json` schema** before writing any registration — a plugin that fails validation is skipped with `[SKIP]` output and a clear `[ERROR]` message identifying the exact field; fix it and re-run
+6. For each valid plugin: updates `~/.claude/plugins/installed_plugins.json` and creates a cache symlink at `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` pointing to the plugin's source directory
 
-Watch the script output for any `ERROR` lines. If the script exits with a non-zero status, report the error to the user and stop.
+Watch the script output for any `[ERROR]` or `[SKIP]` lines — they identify exact `plugin.json` fields that need fixing. If the script exits with a non-zero status, report the error to the user and stop.
 
 ### 4. Verify the result
 After the script completes, confirm it worked by running **all** of these checks:
@@ -114,6 +117,13 @@ If a path is wrong:
 #### 4c. Marketplace file is reachable
 Verify that `<registered-path>/.claude-plugin/marketplace.json` actually exists. If it does not, the registered path is wrong — go back to step 4b.
 
+#### 4d. Confirm plugin status via CLI
+Run:
+```bash
+claude plugin list
+```
+Every plugin registered by this script must show `Status: ✔ enabled`. If any shows `Status: ✘ failed to load`, the `Error:` line identifies the exact field in `plugin.json` that failed Claude Code's schema validation — fix it, re-run the setup script, and repeat this check.
+
 Then tell the user:
 - Each plugin key: `<plugin-name>@<marketplace-name>` (shown in the script output)
 - The skill prefix for each plugin: `<plugin-name>:<skill-folder-name>`
@@ -124,8 +134,10 @@ Then tell the user:
 
 | Step | File | What is written |
 |------|------|-----------------|
+| Cleanup | `~/.claude/settings.json`, `~/.claude/plugins/installed_plugins.json` | Removes any stale `*@<marketplace>` entries not present in current `marketplace.json` — printed as `[CLEAN]` lines |
 | Settings | `~/.claude/settings.json` | One `extraKnownMarketplaces["<marketplace>"]` entry (repo root path) + one `enabledPlugins["<plugin>@<marketplace>"] = true` per plugin |
 | Known marketplaces | `~/.claude/plugins/known_marketplaces.json` | Marketplace entry with `source`, `installLocation` (repo root), and `lastUpdated` |
+| Validation | `plugin.json` (read-only) | Schema check: `name` and `version` are non-empty strings; `repository` is a string not an object; `agents` field is absent. Failing plugins are skipped with `[ERROR]`/`[SKIP]` output |
 | Installed plugins | `~/.claude/plugins/installed_plugins.json` | One plugin entry per plugin with scope `"user"`, version, and timestamps |
 | Cache symlinks | `~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/` | Symlink to each plugin's source directory |
 
