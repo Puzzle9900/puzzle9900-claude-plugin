@@ -94,6 +94,51 @@ This architecture is **inspired by** Clean Architecture but deliberately avoids 
 - **Managers are not "God classes"** — They orchestrate, but each manager has a well-defined scope. If a manager grows too large, decompose it.
 - **Avoid ceremony for ceremony's sake** — If a use case would simply delegate to a repository method with no added logic, question whether that use case is needed. However, the ViewModel must still not access the repository directly — route through the use case even if thin, to preserve the architectural boundary.
 
+### Dispatcher Ownership — Use Cases and Managers Are Dispatcher-Agnostic
+
+Threading decisions belong to **one layer and one layer only**: the data source that genuinely blocks. Use cases, managers, repository implementations (as orchestrators), and everything up the stack must be **dispatcher-agnostic suspend functions** that let the caller choose the execution context.
+
+**Rule of thumb:**
+
+- **Use cases** and **managers**: never wrap a body in `withContext(Dispatchers.IO)` / `flowOn(Dispatchers.IO)` / `Dispatchers.Default`. If you see one, it is almost always noise.
+- **Repositories** (the orchestration layer): normally no `withContext` either — they call suspend data sources and let those own the threading. A repository only pins a dispatcher when it is doing CPU-heavy aggregation of its own (rare).
+- **Data sources**: this is where dispatcher wrapping is legitimate, and even here it should wrap **only the specific primitive that genuinely blocks** — not the whole method. Examples of primitives that warrant `withContext(Dispatchers.IO)`:
+  - Synchronous IO reads on objects returned by otherwise-suspend libraries (e.g., `Retrofit.errorBody().string()`)
+  - `File.readText()`, `File.writeText()`, `FileInputStream.read()`
+  - Native JNI calls not already wrapped in suspend
+  - Third-party SDK methods documented as blocking
+- Modern suspend libraries (Retrofit, Ktor, Room DAOs marked `suspend`, SQLDelight coroutines extensions) are **main-safe by design**. Wrapping them in `withContext(Dispatchers.IO)` adds zero value and hides where threading actually matters.
+
+**Why this matters:**
+
+- Use-case-level `withContext` makes it impossible to tell which layer actually needs the dispatcher hop. Any future reader assumes the whole chain blocks; in reality only one line does.
+- It couples the domain layer to a threading decision it has no basis to make — the data source knows whether a call blocks; the use case does not.
+- It breaks dispatcher injection for testing — tests that pass a test dispatcher to the ViewModel find their dispatcher silently overridden three calls down.
+- It invites cargo-culting — every new use case author adds `withContext(Dispatchers.IO)` "to be safe," and the codebase fills with noise.
+
+**If you think a use case or manager truly needs a dispatcher, stop and ask first.** The answer is almost always "no — move the `withContext` into the data source at the exact line that genuinely blocks."
+
+```kotlin
+// ❌ Wrong — use case owns a decision it should not own
+class GetDirectionsUseCase(private val repo: RoutingRepository) {
+    suspend fun getDirections(...): Result<Route> = withContext(Dispatchers.IO) {
+        repo.getDirections(...)
+    }
+}
+
+// ✅ Correct — use case is dispatcher-agnostic, data source scopes the actual blocking call
+class GetDirectionsUseCase(private val repo: RoutingRepository) {
+    suspend fun getDirections(...): Result<Route> = repo.getDirections(...)
+}
+
+class StadiaRoutingRemoteDataSource(...) {
+    suspend fun readErrorBody(e: HttpException): ErrorBody? =
+        withContext(Dispatchers.IO) {
+            e.response()?.errorBody()?.string()  // actually blocking
+        }
+}
+```
+
 ### Platform-Specific Adaptation
 
 The conceptual model is identical across platforms. Only the implementation idioms change:
@@ -138,6 +183,7 @@ Always read the current project's codebase and any existing architecture documen
 5. Check that dependency injection is used — no manual instantiation of dependencies inside classes.
 6. Flag any unnecessary mapping layers or over-abstraction.
 7. Flag any "God managers" that should be decomposed.
+8. Flag any `withContext(Dispatchers.*)` or `flowOn(Dispatchers.*)` inside a use case, manager, or repository method that is not a data source. Demand the wrapper be pushed down to the exact data-source line that genuinely blocks, or be deleted outright.
 
 ### When answering architecture questions:
 
@@ -197,3 +243,4 @@ When reviewing architecture, structure your response as:
 - **Never embed static code snapshots in your responses when reviewing.** Always reference the actual current files by reading them first.
 - **Always read the project's existing architecture before proposing changes.** Your first action on any task is to understand what already exists.
 - **Never reference specific project names, team names, or organization-specific conventions.** All guidance must be fully generic and portable to any client-side project.
+- **Never approve `withContext(Dispatchers.*)` or `flowOn(Dispatchers.*)` inside a use case, manager, or orchestrating repository method.** Threading decisions belong in the data source, and only at the specific primitive that genuinely blocks. If a reviewed PR wraps a use-case body in a dispatcher, demand it be removed or moved down; if the author believes the wrap is required, demand they justify which specific call actually blocks before approving.
